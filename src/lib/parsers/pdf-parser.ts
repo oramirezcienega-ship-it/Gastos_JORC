@@ -22,13 +22,6 @@ const MONTH_MAP: Record<string, number> = {
   dic: 11, diciembre: 11, dec: 11, december: 11,
 }
 
-function inferYear(month: number, referenceYear: number): number {
-  const now = new Date()
-  // If the month is ahead of current month by more than 2, assume previous year
-  if (month > now.getMonth() + 2) return referenceYear - 1
-  return referenceYear
-}
-
 function parseDate(raw: string, referenceYear = new Date().getFullYear()): string | null {
   raw = raw.trim()
 
@@ -39,27 +32,20 @@ function parseDate(raw: string, referenceYear = new Date().getFullYear()): strin
     const month = parseInt(m[2]) - 1
     const year = m[3].length === 2 ? 2000 + parseInt(m[3]) : parseInt(m[3])
     const d = new Date(year, month, day)
-    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
+    if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return d.toISOString().split('T')[0]
   }
 
   // DD MMM YYYY  or  DD/MMM/YYYY  or  DD MMM
-  m = raw.match(/^(\d{1,2})[\/\-\s]([a-záéíóúüA-ZÁÉÍÓÚÜ]{3,})[\/\-\s]?(\d{0,4})$/)
+  m = raw.match(/^(\d{1,2})[\s\/\-]([a-záéíóúüA-ZÁÉÍÓÚÜ]{3,})[\s\/\-]?(\d{0,4})$/)
   if (m) {
     const day = parseInt(m[1])
-    const monthStr = m[2].toLowerCase()
-    const monthIdx = MONTH_MAP[monthStr]
+    const monthIdx = MONTH_MAP[m[2].toLowerCase()]
     if (monthIdx === undefined) return null
-    const year = m[3] ? (m[3].length === 2 ? 2000 + parseInt(m[3]) : parseInt(m[3])) : inferYear(monthIdx, referenceYear)
+    const yearStr = m[3]
+    const year = yearStr
+      ? (yearStr.length === 2 ? 2000 + parseInt(yearStr) : parseInt(yearStr))
+      : referenceYear
     const d = new Date(year, monthIdx, day)
-    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
-  }
-
-  // MMM DD, YYYY  (English format)
-  m = raw.match(/^([a-záéíóúA-Z]{3,})\s+(\d{1,2})[,\s]+(\d{4})$/)
-  if (m) {
-    const monthIdx = MONTH_MAP[m[1].toLowerCase()]
-    if (monthIdx === undefined) return null
-    const d = new Date(parseInt(m[3]), monthIdx, parseInt(m[2]))
     if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
   }
 
@@ -67,135 +53,80 @@ function parseDate(raw: string, referenceYear = new Date().getFullYear()): strin
 }
 
 function parseAmount(raw: string): number | null {
-  // Remove currency symbols, spaces
-  const cleaned = raw.replace(/[\$€£R\s]/g, '').replace(/,/g, '')
+  const cleaned = raw.replace(/[\$€£R\sMXN]/g, '').replace(/,/g, '')
   const n = parseFloat(cleaned)
   return isNaN(n) ? null : Math.abs(n)
 }
 
-function classifyType(description: string, isCredit: boolean): TransactionType {
-  const desc = description.toLowerCase()
-  if (isCredit) {
-    if (/abono|depósito|deposito|pago recibido|transferencia recibida|nómina|nomina|salario/i.test(desc)) return 'income'
-    return 'income'
-  }
-  if (/invers|fondo|cetes|bono|accio|etf|dolar|usd|crypto|bitcoin/i.test(desc)) return 'investment'
+function classifyType(description: string): TransactionType {
+  if (/invers|fondo|cetes|bono|accio|etf|dolar|usd|crypto|bitcoin/i.test(description)) return 'investment'
+  if (/abono|depósito|deposito|pago recibido|transferencia recibida|nómina|nomina|salario/i.test(description)) return 'income'
   return 'expense'
 }
 
 export async function parsePDF(buffer: Buffer): Promise<ParsedTransaction[]> {
-  // pdfjs-dist (used by pdf-parse) references DOMMatrix which doesn't exist in Node.js.
-  // Provide a minimal stub so the transform math doesn't throw.
-  if (typeof (globalThis as Record<string, unknown>).DOMMatrix === 'undefined') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(globalThis as any).DOMMatrix = class DOMMatrix {
-      a=1;b=0;c=0;d=1;e=0;f=0
-      m11=1;m12=0;m13=0;m14=0
-      m21=0;m22=1;m23=0;m24=0
-      m31=0;m32=0;m33=1;m34=0
-      m41=0;m42=0;m43=0;m44=1
-      is2D=true;isIdentity=true
-      constructor(_init?: string | number[]) {}
-      multiply(other: DOMMatrix) { return other }
-      translate(tx=0,ty=0,_tz=0) { const m = new DOMMatrix(); m.e=tx; m.f=ty; return m }
-      scale(sx=1,sy=1) { const m = new DOMMatrix(); m.a=sx; m.d=sy; return m }
-      inverse() { return new DOMMatrix() }
-      transformPoint(p: {x:number;y:number}) { return { x: p.x + this.e, y: p.y + this.f, z: 0, w: 1 } }
-    }
-  }
-
+  // pdf2json works in Node.js without any browser globals (no DOMMatrix, no canvas)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfMod = await import('pdf-parse') as any
-  const pdfParse: (buf: Buffer) => Promise<{ text: string }> = pdfMod.default ?? pdfMod
-  const data = await pdfParse(buffer)
-  const text: string = data.text
+  const PDFParser = (await import('pdf2json') as any).default
+  const text = await new Promise<string>((resolve, reject) => {
+    const parser = new PDFParser(null, true)
+    parser.on('pdfParser_dataReady', () => {
+      resolve(parser.getRawTextContent())
+    })
+    parser.on('pdfParser_dataError', (err: { parserError: Error }) => {
+      reject(err.parserError)
+    })
+    parser.parseBuffer(buffer)
+  })
 
-  const transactions = tryNuBankFormat(text) ?? tryGenericFormat(text)
-  return transactions
+  return parseText(text)
 }
 
-// Nu Bank Mexico credit card statement parser
-// Lines like:  "01 JUN   AMAZON.COM.BR   $ 150.00"
-// or multi-line blocks
-function tryNuBankFormat(text: string): ParsedTransaction[] | null {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-  const results: ParsedTransaction[] = []
-
-  const nuLineRe = /^(\d{1,2}\s+[A-Za-záéíóúA-Z]{3,}(?:\s+\d{4})?)\s+(.+?)\s+\$?\s*([\d,]+\.\d{2})\s*$/
-
-  for (const line of lines) {
-    const m = line.match(nuLineRe)
-    if (!m) continue
-    const date = parseDate(m[1])
-    if (!date) continue
-    const amount = parseAmount(m[3])
-    if (amount === null || amount === 0) continue
-    const desc = m[2].trim()
-    if (!desc || desc.length < 2) continue
-
-    results.push({ date, description: desc, amount, type: 'expense' })
-  }
-
-  // Nu Bank also has credit lines (pagos)
-  // Look for lines with "Pago" / "Abono" keyword with amount
-  for (const line of lines) {
-    if (!/pago|abono/i.test(line)) continue
-    const amtMatch = line.match(/\$?\s*([\d,]+\.\d{2})/)
-    if (!amtMatch) continue
-    const dateMatch = line.match(/(\d{1,2}[\s\/\-][A-Za-záéíóúüA-ZÁÉÍÓÚÜ]{3,}(?:[\s\/\-]\d{0,4})?)/)
-    if (!dateMatch) continue
-    const date = parseDate(dateMatch[1])
-    if (!date) continue
-    const amount = parseAmount(amtMatch[1])
-    if (!amount) continue
-    results.push({ date, description: 'Pago de tarjeta Nu', amount, type: 'income' })
-  }
-
-  return results.length > 0 ? results : null
-}
-
-// Generic MX bank statement parser — tries to find date+description+amount triples
-function tryGenericFormat(text: string): ParsedTransaction[] {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-  const results: ParsedTransaction[] = []
+function parseText(text: string): ParsedTransaction[] {
   const referenceYear = new Date().getFullYear()
+  const lines = text
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean)
 
-  // Skip obvious header lines
-  const isHeader = (l: string) => /^(fecha|date|descripci|concepto|cargo|abono|saldo|monto|importe|movimiento)/i.test(l)
+  const isHeader = (l: string) =>
+    /^(fecha|date|descripci|concepto|cargo|abono|saldo|monto|importe|movimiento|referencia)/i.test(l)
 
-  // Single-line pattern: date ... description ... amount
-  const singleLineRe = /^(\d{1,2}[\s\/\-][A-Za-záéíóúüA-ZÁÉÍÓÚÜ]{3,}(?:[\s\/\-]\d{0,4})?|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s+(.+?)\s+\$?\s*([\d,]+\.\d{2})\s*$/
+  const results: ParsedTransaction[] = []
+
+  // Single-line: date + description + amount all together
+  // Covers: "01/06/2026 MERCHANT NAME $ 150.00"
+  // and:    "01 JUN MERCHANT NAME 150.00"
+  const singleRe =
+    /^(\d{1,2}[\s\/\-][A-Za-záéíóúüA-ZÁÉÍÓÚÜ]{3,}[\s\/\-]?\d{0,4}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s+(.+?)\s+\$?\s*([\d,]+\.\d{2})\s*$/
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (isHeader(line)) continue
 
-    const m = line.match(singleLineRe)
+    const m = line.match(singleRe)
     if (m) {
       const date = parseDate(m[1], referenceYear)
       if (!date) continue
       const amount = parseAmount(m[3])
       if (!amount) continue
       const desc = m[2].trim()
-      if (!desc || desc.length < 2) continue
-      const type = classifyType(desc, false)
-      results.push({ date, description: desc, amount, type })
+      if (desc.length < 2) continue
+      results.push({ date, description: desc, amount, type: classifyType(desc) })
       continue
     }
 
-    // Two-column pattern: date and description on separate tokens + amount at end or next line
-    // Try: date line followed by description line followed by amount line
+    // Multi-line block: date line → description line → amount line
     if (i + 2 < lines.length) {
       const date = parseDate(line, referenceYear)
       if (date) {
         const desc = lines[i + 1]
         const amtLine = lines[i + 2]
         const amtMatch = amtLine.match(/^\$?\s*([\d,]+\.\d{2})\s*$/)
-        if (amtMatch && desc && desc.length >= 2 && !isHeader(desc)) {
+        if (amtMatch && desc.length >= 2 && !isHeader(desc)) {
           const amount = parseAmount(amtMatch[1])
           if (amount) {
-            const type = classifyType(desc, false)
-            results.push({ date, description: desc, amount, type })
+            results.push({ date, description: desc, amount, type: classifyType(desc) })
             i += 2
             continue
           }

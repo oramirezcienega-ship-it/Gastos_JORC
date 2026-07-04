@@ -12,11 +12,15 @@ export async function POST(req: NextRequest) {
 
   const bytes = await file.arrayBuffer()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfMod = await import('pdf-parse') as any
-  const pdfParse = pdfMod.default ?? pdfMod
-  const data = await pdfParse(Buffer.from(bytes))
+  const PDFParser = (await import('pdf2json') as any).default
 
-  // Return full text split by lines so we can see exactly what pdf-parse extracts
-  const lines = data.text.split('\n').map((l: string, i: number) => `${i}: ${JSON.stringify(l)}`)
-  return NextResponse.json({ lines, totalLines: lines.length, rawText: data.text })
+  const text = await new Promise<string>((resolve, reject) => {
+    const parser = new PDFParser(null, true)
+    parser.on('pdfParser_dataReady', () => resolve(parser.getRawTextContent()))
+    parser.on('pdfParser_dataError', (err: { parserError: Error }) => reject(err.parserError))
+    parser.parseBuffer(Buffer.from(bytes))
+  })
+
+  const lines = text.split('\n').map((l: string, i: number) => `${i}: ${JSON.stringify(l)}`)
+  return NextResponse.json({ lines, totalLines: lines.length, rawText: text })
 }
