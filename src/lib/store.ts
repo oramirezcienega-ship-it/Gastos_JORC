@@ -31,7 +31,7 @@ interface AppState {
   deleteTransaction: (id: string) => Promise<void>
   createAccount: (data: Partial<Account>) => Promise<void>
   createBusiness: (data: Partial<Business>) => Promise<void>
-  uploadFile: (file: File, accountId?: string, month?: number, year?: number) => Promise<void>
+  uploadFile: (file: File, accountId?: string, month?: number, year?: number) => Promise<{ fileId: string }>
   setYear: (year: number) => void
   setMonth: (month: number | null) => void
 }
@@ -172,18 +172,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   uploadFile: async (file, accountId, month, year) => {
     const { token } = get()
-    if (!token) return
+    if (!token) throw new Error('No auth token')
     const formData = new FormData()
     formData.append('file', file)
     if (accountId) formData.append('account_id', accountId)
     if (month) formData.append('period_month', month.toString())
     if (year) formData.append('period_year', year.toString())
-    await fetch('/api/upload', {
+    const res = await fetch('/api/upload', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
     })
-    setTimeout(() => get().fetchDashboard(), 3000)
+    if (!res.ok) throw new Error(await res.text())
+    const { file: fileRecord } = await res.json()
+    return { fileId: fileRecord.id }
   },
 
   setYear: (year) => {

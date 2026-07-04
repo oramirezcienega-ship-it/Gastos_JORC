@@ -1,21 +1,61 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useAppStore } from '@/lib/store'
-import { Upload, FileText, CheckCircle, AlertCircle, X } from 'lucide-react'
+import { Upload, FileText, CheckCircle, AlertCircle, X, Loader2 } from 'lucide-react'
 
 interface Props {
   onClose?: () => void
 }
 
+type Phase = 'idle' | 'uploading' | 'processing' | 'done' | 'error'
+
 export function UploadZone({ onClose }: Props) {
-  const { accounts, uploadFile } = useAppStore()
+  const { accounts, uploadFile, fetchDashboard, token } = useAppStore()
   const [dragging, setDragging] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [accountId, setAccountId] = useState('')
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [year, setYear] = useState(new Date().getFullYear())
-  const [status, setStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle')
+  const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState('')
+  const [txCount, setTxCount] = useState<number | null>(null)
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const stopPolling = () => {
+    if (pollRef.current) clearTimeout(pollRef.current)
+  }
+
+  const pollStatus = useCallback(async (fileId: string, attempt = 0) => {
+    if (!token) return
+    try {
+      const res = await fetch(`/api/files?id=${fileId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.status === 'done') {
+        setTxCount(data.transactionCount)
+        setPhase('done')
+        fetchDashboard()
+        setTimeout(() => onClose?.(), 3500)
+      } else if (data.status === 'error') {
+        setPhase('error')
+        setError('El archivo no pudo ser procesado. Verifica el formato.')
+      } else {
+        // Still processing — retry with backoff (max ~30s)
+        const delay = Math.min(2000 + attempt * 500, 5000)
+        pollRef.current = setTimeout(() => pollStatus(fileId, attempt + 1), delay)
+      }
+    } catch {
+      // network hiccup — keep retrying for a bit
+      if (attempt < 10) {
+        pollRef.current = setTimeout(() => pollStatus(fileId, attempt + 1), 3000)
+      } else {
+        setPhase('error')
+        setError('No se pudo verificar el estado del procesamiento.')
+      }
+    }
+  }, [token, fetchDashboard, onClose])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -26,16 +66,26 @@ export function UploadZone({ onClose }: Props) {
 
   const handleUpload = async () => {
     if (!selectedFile) return
-    setStatus('uploading')
+    setPhase('uploading')
     setError('')
+    setTxCount(null)
+    stopPolling()
     try {
-      await uploadFile(selectedFile, accountId || undefined, month, year)
-      setStatus('success')
-      setTimeout(() => onClose?.(), 2000)
+      const { fileId } = await uploadFile(selectedFile, accountId || undefined, month, year)
+      setPhase('processing')
+      pollStatus(fileId)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al subir archivo')
-      setStatus('error')
+      setPhase('error')
     }
+  }
+
+  const handleReset = () => {
+    stopPolling()
+    setPhase('idle')
+    setSelectedFile(null)
+    setError('')
+    setTxCount(null)
   }
 
   const months = Array.from({ length: 12 }, (_, i) => ({
@@ -44,6 +94,39 @@ export function UploadZone({ onClose }: Props) {
   }))
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+
+  if (phase === 'done') {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+          <CheckCircle className="w-12 h-12 text-emerald-400" />
+          <p className="text-emerald-300 font-semibold text-lg">¡Archivo procesado!</p>
+          {txCount !== null && (
+            <p className="text-gray-400 text-sm">
+              {txCount > 0
+                ? `Se importaron ${txCount} transacción${txCount !== 1 ? 'es' : ''}`
+                : 'No se encontraron transacciones en el archivo. Prueba exportar como Excel/CSV.'}
+            </p>
+          )}
+        </div>
+        <button onClick={handleReset} className="w-full text-sm text-indigo-400 hover:text-indigo-300">
+          Subir otro archivo
+        </button>
+      </div>
+    )
+  }
+
+  if (phase === 'processing') {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+          <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" />
+          <p className="text-gray-200 font-medium">Procesando transacciones...</p>
+          <p className="text-gray-500 text-sm">Esto puede tardar unos segundos</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">
@@ -126,37 +209,30 @@ export function UploadZone({ onClose }: Props) {
         </select>
       </div>
 
-      {error && (
+      {phase === 'error' && (
         <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
         </div>
       )}
 
-      {status === 'success' ? (
-        <div className="flex items-center justify-center gap-2 text-emerald-400 py-2">
-          <CheckCircle className="w-5 h-5" />
-          <span>Archivo subido. Procesando transacciones...</span>
-        </div>
-      ) : (
-        <button
-          onClick={handleUpload}
-          disabled={!selectedFile || status === 'uploading'}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
-        >
-          {status === 'uploading' ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Subiendo...
-            </>
-          ) : (
-            <>
-              <Upload className="w-4 h-4" />
-              Subir estado de cuenta
-            </>
-          )}
-        </button>
-      )}
+      <button
+        onClick={handleUpload}
+        disabled={!selectedFile || phase === 'uploading'}
+        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+      >
+        {phase === 'uploading' ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Subiendo...
+          </>
+        ) : (
+          <>
+            <Upload className="w-4 h-4" />
+            Subir estado de cuenta
+          </>
+        )}
+      </button>
     </div>
   )
 }
