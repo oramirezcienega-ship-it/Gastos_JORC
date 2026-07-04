@@ -30,7 +30,13 @@ export default function LoginPage() {
         router.push('/dashboard')
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error desconocido')
+      if (err instanceof Error) {
+        setError(err.message)
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        setError(String((err as { message: unknown }).message))
+      } else {
+        setError(JSON.stringify(err) || 'Error desconocido')
+      }
     } finally {
       setLoading(false)
     }
