@@ -29,6 +29,9 @@ interface AppState {
   createTransaction: (data: Partial<Transaction>) => Promise<void>
   updateTransaction: (data: Partial<Transaction> & { id: string }) => Promise<void>
   deleteTransaction: (id: string) => Promise<void>
+  createCategory: (data: Partial<Category>) => Promise<void>
+  updateCategory: (data: Partial<Category> & { id: string }) => Promise<void>
+  deleteCategory: (id: string) => Promise<void>
   createAccount: (data: Partial<Account>) => Promise<void>
   createBusiness: (data: Partial<Business>) => Promise<void>
   uploadFile: (file: File, accountId?: string, month?: number, year?: number) => Promise<{ fileId: string }>
@@ -154,6 +157,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!token) return
     await apiFetch('/api/transactions', token, { method: 'DELETE', body: JSON.stringify({ id }) })
     await get().fetchDashboard()
+  },
+
+  createCategory: async (catData) => {
+    const { token } = get()
+    if (!token) return
+    await apiFetch('/api/categories', token, { method: 'POST', body: JSON.stringify(catData) })
+    await get().fetchCategories()
+  },
+
+  updateCategory: async (catData) => {
+    const { token } = get()
+    if (!token) return
+    await apiFetch('/api/categories', token, { method: 'PATCH', body: JSON.stringify(catData) })
+    await get().fetchCategories()
+  },
+
+  deleteCategory: async (id) => {
+    const { token } = get()
+    if (!token) return
+    await apiFetch('/api/categories', token, { method: 'DELETE', body: JSON.stringify({ id }) })
+    await get().fetchCategories()
   },
 
   createAccount: async (accountData) => {
