@@ -86,7 +86,7 @@ function classifyType(description: string, isCredit: boolean): TransactionType {
 export async function parsePDF(buffer: Buffer): Promise<ParsedTransaction[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfMod = await import('pdf-parse') as any
-  const pdfParse = pdfMod.default ?? pdfMod
+  const pdfParse: (buf: Buffer) => Promise<{ text: string }> = pdfMod.default ?? pdfMod
   const data = await pdfParse(buffer)
   const text: string = data.text
 

@@ -45,26 +45,30 @@ export async function POST(req: NextRequest) {
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 })
 
-  parseAndImport(fileRecord.id, storagePath, fileType, user.id)
+  // Parse synchronously — serverless functions terminate on response,
+  // so fire-and-forget doesn't work in this environment.
+  await parseAndImport(fileRecord.id, storagePath, fileType, user.id, bytes)
 
   return NextResponse.json({ file: fileRecord })
 }
 
-async function parseAndImport(fileId: string, storagePath: string, fileType: string, userId: string) {
+async function parseAndImport(
+  fileId: string,
+  storagePath: string,
+  fileType: string,
+  userId: string,
+  bytes: ArrayBuffer,
+) {
   const supabase = getAdminClient()
   try {
-    const { data: fileData, error } = await supabase.storage.from('statements').download(storagePath)
-    if (error || !fileData) throw new Error('Could not download file')
-
-    const buffer = await fileData.arrayBuffer()
     let transactions: Array<{ date: string; description: string; amount: number; type: string }> = []
 
     if (fileType === 'excel') {
       const { parseExcel } = await import('@/lib/parsers/excel-parser')
-      transactions = parseExcel(buffer)
+      transactions = parseExcel(bytes)
     } else {
       const { parsePDF } = await import('@/lib/parsers/pdf-parser')
-      transactions = await parsePDF(Buffer.from(buffer))
+      transactions = await parsePDF(Buffer.from(bytes))
     }
 
     if (transactions.length > 0) {
