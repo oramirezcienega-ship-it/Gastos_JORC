@@ -1,21 +1,11 @@
+export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-async function getUser(req: NextRequest) {
-  const token = req.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return null
-  const { data: { user } } = await supabase.auth.getUser(token)
-  return user
-}
+import { getAdminClient, getUserFromRequest } from '@/lib/supabase/admin'
 
 export async function GET(req: NextRequest) {
-  const user = await getUser(req)
+  const user = await getUserFromRequest(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = getAdminClient()
   const { data, error } = await supabase
     .from('categories')
     .select('*')
@@ -26,8 +16,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await getUser(req)
+  const user = await getUserFromRequest(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = getAdminClient()
   const body = await req.json()
   const { data, error } = await supabase.from('categories').insert({ ...body, user_id: user.id }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

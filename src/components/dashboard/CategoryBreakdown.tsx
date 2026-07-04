@@ -57,7 +57,7 @@ export function CategoryBreakdown({ data }: Props) {
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number) => formatCurrency(value)}
+            formatter={(value: unknown) => formatCurrency(Number(value))}
             contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8 }}
             labelStyle={{ color: '#e5e7eb' }}
           />

@@ -1,6 +1,5 @@
 'use client'
 import { create } from 'zustand'
-import { createClient } from '@/lib/supabase/client'
 import { Transaction, Account, Business, Category } from '@/lib/supabase/types'
 
 interface AppState {
@@ -77,6 +76,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedMonth: new Date().getMonth() + 1,
 
   initialize: async () => {
+    const { createClient } = await import('@/lib/supabase/client')
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {

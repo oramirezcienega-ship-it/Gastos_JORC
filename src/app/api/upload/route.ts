@@ -1,18 +1,11 @@
+export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getAdminClient, getUserFromRequest } from '@/lib/supabase/admin'
 
 export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const token = authHeader.replace('Bearer ', '')
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-  if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await getUserFromRequest(req)
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = getAdminClient()
 
   const formData = await req.formData()
   const file = formData.get('file') as File
@@ -24,7 +17,6 @@ export async function POST(req: NextRequest) {
 
   const ext = file.name.split('.').pop()?.toLowerCase()
   const fileType = ext === 'pdf' ? 'pdf' : ['xlsx', 'xls', 'csv'].includes(ext ?? '') ? 'excel' : null
-
   if (!fileType) return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 })
 
   const storagePath = `${user.id}/${Date.now()}_${file.name}`
@@ -53,24 +45,15 @@ export async function POST(req: NextRequest) {
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 })
 
-  // Parse and import transactions in background
-  parseAndImport(fileRecord.id, storagePath, fileType, user.id, file.name)
+  parseAndImport(fileRecord.id, storagePath, fileType, user.id)
 
   return NextResponse.json({ file: fileRecord })
 }
 
-async function parseAndImport(
-  fileId: string,
-  storagePath: string,
-  fileType: string,
-  userId: string,
-  fileName: string
-) {
+async function parseAndImport(fileId: string, storagePath: string, fileType: string, userId: string) {
+  const supabase = getAdminClient()
   try {
-    const { data: fileData, error } = await supabase.storage
-      .from('statements')
-      .download(storagePath)
-
+    const { data: fileData, error } = await supabase.storage.from('statements').download(storagePath)
     if (error || !fileData) throw new Error('Could not download file')
 
     const buffer = await fileData.arrayBuffer()
@@ -85,28 +68,22 @@ async function parseAndImport(
     }
 
     if (transactions.length > 0) {
-      const rows = transactions.map(t => ({
-        user_id: userId,
-        statement_file_id: fileId,
-        date: t.date,
-        description: t.description,
-        amount: t.amount,
-        type: t.type,
-        is_manual: false,
-      }))
-
-      await supabase.from('transactions').insert(rows)
+      await supabase.from('transactions').insert(
+        transactions.map(t => ({
+          user_id: userId,
+          statement_file_id: fileId,
+          date: t.date,
+          description: t.description,
+          amount: t.amount,
+          type: t.type,
+          is_manual: false,
+        }))
+      )
     }
 
-    await supabase
-      .from('statement_files')
-      .update({ status: 'done' })
-      .eq('id', fileId)
+    await supabase.from('statement_files').update({ status: 'done' }).eq('id', fileId)
   } catch (err) {
     console.error('Parse error:', err)
-    await supabase
-      .from('statement_files')
-      .update({ status: 'error' })
-      .eq('id', fileId)
+    await supabase.from('statement_files').update({ status: 'error' }).eq('id', fileId)
   }
 }

@@ -39,12 +39,14 @@ function parseDate(raw: string): string | null {
 
 export async function parsePDF(buffer: Buffer): Promise<ParsedTransaction[]> {
   // Dynamic import to avoid SSR issues
-  const pdfParse = (await import('pdf-parse')).default
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfMod = await import('pdf-parse') as any
+  const pdfParse = pdfMod.default ?? pdfMod
   const data = await pdfParse(buffer)
   const text = data.text
 
   const transactions: ParsedTransaction[] = []
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean)
 
   for (const line of lines) {
     // Skip header-like lines

@@ -1,9 +1,8 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import {
-  LayoutDashboard, Receipt, Building2, CreditCard, Upload, Settings, LogOut, TrendingUp
+  LayoutDashboard, Receipt, Building2, CreditCard, Upload, LogOut, TrendingUp
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -21,6 +20,7 @@ export function Sidebar() {
   const router = useRouter()
 
   const handleLogout = async () => {
+    const { createClient } = await import('@/lib/supabase/client')
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')
