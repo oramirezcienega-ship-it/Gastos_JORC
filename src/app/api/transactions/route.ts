@@ -13,6 +13,12 @@ export async function GET(req: NextRequest) {
   const type = url.searchParams.get('type')
   const search = url.searchParams.get('search')
 
+  const dateFrom = url.searchParams.get('date_from')
+  const dateTo = url.searchParams.get('date_to')
+  const amountMin = url.searchParams.get('amount_min')
+  const amountMax = url.searchParams.get('amount_max')
+  const sort = url.searchParams.get('sort') ?? 'date_desc'
+
   let query = supabase
     .from('transactions')
     .select('*, category:categories(*), account:accounts(*), business:businesses(*)', { count: 'exact' })
@@ -20,9 +26,18 @@ export async function GET(req: NextRequest) {
 
   if (type) query = query.eq('type', type)
   if (search) query = query.ilike('description', `%${search}%`)
+  if (dateFrom) query = query.gte('date', dateFrom)
+  if (dateTo) query = query.lte('date', dateTo)
+  if (amountMin) query = query.gte('amount', parseFloat(amountMin))
+  if (amountMax) query = query.lte('amount', parseFloat(amountMax))
+
+  const [sortCol, sortDir] = sort === 'amount_asc' ? ['amount', true]
+    : sort === 'amount_desc' ? ['amount', false]
+    : sort === 'date_asc' ? ['date', true]
+    : ['date', false]
 
   const { data, count, error } = await query
-    .order('date', { ascending: false })
+    .order(sortCol, { ascending: sortDir as boolean })
     .range((page - 1) * limit, page * limit - 1)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
