@@ -50,9 +50,9 @@ export async function POST(req: NextRequest) {
 
   // Parse synchronously — serverless functions terminate on response,
   // so fire-and-forget doesn't work in this environment.
-  await parseAndImport(fileRecord.id, storagePath, fileType, user.id, bytesForParsing)
+  const parseError = await parseAndImport(fileRecord.id, storagePath, fileType, user.id, bytesForParsing)
 
-  return NextResponse.json({ file: fileRecord })
+  return NextResponse.json({ file: fileRecord, parseError: parseError ?? null })
 }
 
 async function parseAndImport(
@@ -61,7 +61,7 @@ async function parseAndImport(
   fileType: string,
   userId: string,
   bytes: ArrayBuffer,
-) {
+): Promise<string | null> {
   const supabase = getAdminClient()
   try {
     let transactions: Array<{ date: string; description: string; amount: number; type: string }> = []
@@ -89,8 +89,11 @@ async function parseAndImport(
     }
 
     await supabase.from('statement_files').update({ status: 'done' }).eq('id', fileId)
+    return null
   } catch (err) {
-    console.error('Parse error:', err)
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+    console.error('Parse error:', msg)
     await supabase.from('statement_files').update({ status: 'error' }).eq('id', fileId)
+    return msg
   }
 }

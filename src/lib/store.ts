@@ -184,8 +184,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       body: formData,
     })
     if (!res.ok) throw new Error(await res.text())
-    const { file: fileRecord } = await res.json()
-    return { fileId: fileRecord.id }
+    const body = await res.json()
+    if (body.parseError) throw new Error(`Parse error: ${body.parseError}`)
+    return { fileId: body.file.id }
   },
 
   setYear: (year) => {
