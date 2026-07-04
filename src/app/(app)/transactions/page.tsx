@@ -316,7 +316,7 @@ export default function TransactionsPage() {
                     <span className={cn('text-xs font-medium', TYPE_COLORS[t.type])}>{TYPE_LABELS[t.type]}</span>
                   </td>
                   <td className={cn('px-4 py-3 text-sm font-semibold text-right whitespace-nowrap cursor-pointer', TYPE_COLORS[t.type])} onClick={() => setEditingTx(t)}>
-                    {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
+                    {formatCurrency(t.amount)}
                   </td>
                 </tr>
               ))}
