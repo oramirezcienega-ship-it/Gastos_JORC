@@ -23,12 +23,14 @@ export function TransactionModal({ transaction, onClose }: Props) {
     notes: transaction?.notes ?? '',
   })
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const filteredCategories = categories.filter(c => c.type === form.type)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError('')
     try {
       const data = {
         ...form,
@@ -44,6 +46,8 @@ export function TransactionModal({ transaction, onClose }: Props) {
         await createTransaction(data)
       }
       onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
       setLoading(false)
     }
@@ -181,6 +185,8 @@ export function TransactionModal({ transaction, onClose }: Props) {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 resize-none"
             />
           </div>
+
+          {error && <p className="text-red-400 text-xs bg-red-900/20 border border-red-900 rounded-lg px-3 py-2">{error}</p>}
 
           <div className="flex gap-2 pt-2">
             {transaction && (
