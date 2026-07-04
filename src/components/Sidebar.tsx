@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  LayoutDashboard, Receipt, Building2, CreditCard, Upload, LogOut, TrendingUp
+  LayoutDashboard, Receipt, Building2, CreditCard, Upload, LogOut, TrendingUp, History
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -10,6 +10,7 @@ const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/transactions', label: 'Transacciones', icon: Receipt },
   { href: '/upload', label: 'Subir Estado', icon: Upload },
+  { href: '/imports', label: 'Importaciones', icon: History },
   { href: '/accounts', label: 'Cuentas', icon: CreditCard },
   { href: '/businesses', label: 'Negocios', icon: Building2 },
   { href: '/analytics', label: 'Análisis', icon: TrendingUp },
