@@ -71,7 +71,7 @@ export function TransactionModal({ transaction, onClose }: Props) {
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Type selector */}
           <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
-            {(['expense', 'income', 'investment'] as const).map(t => (
+            {(['expense', 'income', 'investment', 'credit'] as const).map(t => (
               <button
                 key={t}
                 type="button"
@@ -80,11 +80,12 @@ export function TransactionModal({ transaction, onClose }: Props) {
                   form.type === t
                     ? t === 'expense' ? 'bg-red-600 text-white'
                       : t === 'income' ? 'bg-emerald-600 text-white'
-                      : 'bg-violet-600 text-white'
+                      : t === 'investment' ? 'bg-violet-600 text-white'
+                      : 'bg-orange-600 text-white'
                     : 'text-gray-400 hover:text-gray-300'
                 }`}
               >
-                {t === 'expense' ? 'Gasto' : t === 'income' ? 'Ingreso' : 'Inversión'}
+                {t === 'expense' ? 'Gasto' : t === 'income' ? 'Ingreso' : t === 'investment' ? 'Inversión' : 'Crédito'}
               </button>
             ))}
           </div>

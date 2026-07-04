@@ -1,4 +1,4 @@
-export type TransactionType = 'expense' | 'income' | 'investment'
+export type TransactionType = 'expense' | 'income' | 'investment' | 'credit'
 export type AccountType = 'bank' | 'credit_card' | 'investment' | 'cash'
 export type FileStatus = 'pending' | 'processing' | 'done' | 'error'
 

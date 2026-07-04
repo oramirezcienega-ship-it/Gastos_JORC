@@ -5,25 +5,21 @@ import { Transaction } from '@/lib/supabase/types'
 import { TransactionModal } from '@/components/transactions/TransactionModal'
 import { BulkCategorizeModal } from '@/components/transactions/BulkCategorizeModal'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Search, Plus, SlidersHorizontal, X, ArrowUpDown, Tag } from 'lucide-react'
+import { Search, Plus, SlidersHorizontal, X, ArrowUpDown, ArrowUp, ArrowDown, Tag } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const TYPE_COLORS: Record<string, string> = {
   expense: 'text-red-400',
   income: 'text-emerald-400',
   investment: 'text-violet-400',
+  credit: 'text-orange-400',
 }
 const TYPE_LABELS: Record<string, string> = {
   expense: 'Gasto',
   income: 'Ingreso',
   investment: 'Inversión',
+  credit: 'Crédito',
 }
-const SORT_OPTIONS = [
-  { value: 'date_desc', label: 'Fecha (más reciente)' },
-  { value: 'date_asc', label: 'Fecha (más antigua)' },
-  { value: 'amount_desc', label: 'Monto (mayor)' },
-  { value: 'amount_asc', label: 'Monto (menor)' },
-]
 
 interface Filters {
   search: string; type: string; dateFrom: string; dateTo: string
@@ -95,6 +91,21 @@ export default function TransactionsPage() {
   const totalPages = Math.ceil(total / 50)
   const active = activeFilterCount(filters)
 
+  const cycleSort = (col: 'date' | 'amount') => {
+    const next =
+      filters.sort === `${col}_desc` ? `${col}_asc`
+      : filters.sort === `${col}_asc` ? `${col}_desc`
+      : `${col}_desc`
+    setFilters(f => ({ ...f, sort: next }))
+    setPage(1)
+  }
+
+  const SortIcon = ({ col }: { col: 'date' | 'amount' }) => {
+    if (filters.sort === `${col}_desc`) return <ArrowDown className="w-3 h-3 ml-1 inline text-indigo-400" />
+    if (filters.sort === `${col}_asc`) return <ArrowUp className="w-3 h-3 ml-1 inline text-indigo-400" />
+    return <ArrowUpDown className="w-3 h-3 ml-1 inline text-gray-600" />
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto pb-24">
       {/* Header */}
@@ -125,7 +136,7 @@ export default function TransactionsPage() {
           />
         </div>
         <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-lg p-1">
-          {['', 'expense', 'income', 'investment'].map(t => (
+          {['', 'expense', 'income', 'investment', 'credit'].map(t => (
             <button key={t}
               onClick={() => { setFilters(f => ({ ...f, type: t })); setPage(1) }}
               className={cn('px-3 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap',
@@ -134,14 +145,6 @@ export default function TransactionsPage() {
               {t === '' ? 'Todos' : TYPE_LABELS[t]}
             </button>
           ))}
-        </div>
-        <div className="relative">
-          <select value={filters.sort} onChange={e => { setFilters(f => ({ ...f, sort: e.target.value })); setPage(1) }}
-            className="appearance-none bg-gray-900 border border-gray-800 rounded-lg pl-8 pr-4 py-2 text-sm text-gray-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-          >
-            {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
         </div>
         <button
           onClick={() => { setDraft(filters); setShowFilters(s => !s) }}
@@ -221,13 +224,21 @@ export default function TransactionsPage() {
                   <input type="checkbox" checked={allSelected} onChange={toggleAll}
                     className="rounded border-gray-600 bg-gray-800 text-indigo-500 cursor-pointer" />
                 </th>
-                <th className="text-left px-4 py-3">Fecha</th>
+                <th className="text-left px-4 py-3">
+                  <button onClick={() => cycleSort('date')} className="hover:text-gray-300 transition-colors flex items-center">
+                    Fecha <SortIcon col="date" />
+                  </button>
+                </th>
                 <th className="text-left px-4 py-3">Descripción</th>
                 <th className="text-left px-4 py-3">Cuenta</th>
                 <th className="text-left px-4 py-3">Categoría</th>
                 <th className="text-left px-4 py-3">Personal / Negocio</th>
                 <th className="text-left px-4 py-3">Tipo</th>
-                <th className="text-right px-4 py-3">Monto</th>
+                <th className="text-right px-4 py-3">
+                  <button onClick={() => cycleSort('amount')} className="hover:text-gray-300 transition-colors flex items-center ml-auto">
+                    Monto <SortIcon col="amount" />
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>

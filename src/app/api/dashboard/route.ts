@@ -42,11 +42,11 @@ export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalInvestments = transactions.filter((t: any) => t.type === 'investment').reduce((s: number, t: any) => s + t.amount, 0)
 
-  const monthly: Record<string, { expense: number; income: number; investment: number }> = {}
+  const monthly: Record<string, { expense: number; income: number; investment: number; credit: number }> = {}
   for (const t of transactions) {
     const key = t.date.substring(0, 7)
-    if (!monthly[key]) monthly[key] = { expense: 0, income: 0, investment: 0 }
-    monthly[key][t.type as 'expense' | 'income' | 'investment'] += t.amount
+    if (!monthly[key]) monthly[key] = { expense: 0, income: 0, investment: 0, credit: 0 }
+    monthly[key][t.type as 'expense' | 'income' | 'investment' | 'credit'] += t.amount
   }
 
   const byCategory: Record<string, { name: string; color: string; icon: string; amount: number; type: string }> = {}
