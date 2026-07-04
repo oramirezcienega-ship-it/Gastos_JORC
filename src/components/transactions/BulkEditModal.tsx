@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { TransactionType } from '@/lib/supabase/types'
-import { X } from 'lucide-react'
+import { X, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -11,52 +11,53 @@ interface Props {
   onDone: () => void
 }
 
-const TYPES: { value: TransactionType; label: string; color: string }[] = [
-  { value: 'expense',    label: 'Gasto',     color: 'bg-red-600 border-red-600' },
-  { value: 'income',     label: 'Ingreso',   color: 'bg-emerald-600 border-emerald-600' },
-  { value: 'investment', label: 'Inversión', color: 'bg-violet-600 border-violet-600' },
-  { value: 'credit',     label: 'Crédito',   color: 'bg-orange-600 border-orange-600' },
+const TYPES: { value: TransactionType; label: string; active: string; inactive: string }[] = [
+  { value: 'expense',    label: 'Gasto',     active: 'bg-red-600 border-red-600 text-white',     inactive: 'bg-gray-800 border-gray-700 text-gray-400' },
+  { value: 'income',    label: 'Ingreso',    active: 'bg-emerald-600 border-emerald-600 text-white', inactive: 'bg-gray-800 border-gray-700 text-gray-400' },
+  { value: 'investment',label: 'Inversión',  active: 'bg-violet-600 border-violet-600 text-white',  inactive: 'bg-gray-800 border-gray-700 text-gray-400' },
+  { value: 'credit',    label: 'Crédito',   active: 'bg-orange-600 border-orange-600 text-white',  inactive: 'bg-gray-800 border-gray-700 text-gray-400' },
 ]
 
-type FieldKey = 'type' | 'category_id' | 'account_id' | 'business_id' | 'date' | 'notes'
+const KEEP = '__keep__'
+const PERSONAL = '__personal__'
 
 export function BulkEditModal({ selectedIds, onClose, onDone }: Props) {
   const { categories, accounts, businesses, token, fetchDashboard } = useAppStore()
 
-  const [enabled, setEnabled] = useState<Record<FieldKey, boolean>>({
-    type: false, category_id: false, account_id: false,
-    business_id: false, date: false, notes: false,
-  })
-  const [type, setType] = useState<TransactionType>('expense')
-  const [categoryId, setCategoryId] = useState('')
-  const [accountId, setAccountId] = useState('')
-  const [businessId, setBusinessId] = useState('__personal__')
-  const [date, setDate] = useState('')
-  const [notes, setNotes] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [type, setType]             = useState<TransactionType | typeof KEEP>(KEEP)
+  const [categoryId, setCategoryId] = useState(KEEP)
+  const [accountId, setAccountId]   = useState(KEEP)
+  const [businessId, setBusinessId] = useState(KEEP)
+  const [date, setDate]             = useState('')
+  const [notes, setNotes]           = useState(KEEP)
+  const [notesVal, setNotesVal]     = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState('')
 
-  const toggle = (key: FieldKey) =>
-    setEnabled(e => ({ ...e, [key]: !e[key] }))
+  const filteredCategories = type !== KEEP
+    ? categories.filter(c => c.type === type)
+    : categories
 
-  const activeType = enabled.type ? type : null
-  const filteredCategories = categories.filter(c =>
-    activeType ? c.type === activeType : true
-  )
+  const anyChange =
+    type !== KEEP ||
+    categoryId !== KEEP ||
+    accountId !== KEEP ||
+    businessId !== KEEP ||
+    date !== '' ||
+    notes !== KEEP
 
   const handleApply = async () => {
     if (!token) return
-    const anyEnabled = Object.values(enabled).some(Boolean)
-    if (!anyEnabled) { setError('Activa al menos un campo para editar.'); return }
+    if (!anyChange) { setError('Modifica al menos un campo para aplicar.'); return }
     setLoading(true); setError('')
     try {
       const updates: Record<string, string | null> = {}
-      if (enabled.type) updates.type = type
-      if (enabled.category_id) updates.category_id = categoryId || null
-      if (enabled.account_id) updates.account_id = accountId || null
-      if (enabled.business_id) updates.business_id = businessId === '__personal__' ? null : businessId
-      if (enabled.date) updates.date = date
-      if (enabled.notes) updates.notes = notes || null
+      if (type !== KEEP)       updates.type        = type
+      if (categoryId !== KEEP) updates.category_id = categoryId === '' ? null : categoryId
+      if (accountId !== KEEP)  updates.account_id  = accountId === '' ? null : accountId
+      if (businessId !== KEEP) updates.business_id = businessId === PERSONAL ? null : businessId
+      if (date !== '')         updates.date        = date
+      if (notes !== KEEP)      updates.notes       = notesVal || null
 
       const res = await fetch('/api/transactions', {
         method: 'PATCH',
@@ -79,120 +80,98 @@ export function BulkEditModal({ selectedIds, onClose, onDone }: Props) {
         <div className="flex items-center justify-between p-5 border-b border-gray-800">
           <div>
             <h2 className="font-semibold text-gray-100">Edición masiva</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{selectedIds.length} transacciones · activa los campos a editar</p>
+            <p className="text-xs text-gray-500 mt-0.5">{selectedIds.length} transacciones · solo se aplican los campos que cambies</p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="p-5 space-y-3">
-          {/* Type */}
-          <FieldRow label="Tipo" active={enabled.type} onToggle={() => toggle('type')}>
-            <div className="flex gap-1 flex-wrap">
+        <div className="p-5 space-y-4">
+
+          {/* Tipo */}
+          <Field label="Tipo" changed={type !== KEEP}>
+            <div className="flex flex-wrap gap-1.5">
+              <Chip label="Sin cambio" active={type === KEEP} onClick={() => { setType(KEEP); setCategoryId(KEEP) }} color="neutral" />
               {TYPES.map(t => (
-                <button key={t.value} type="button"
-                  onClick={() => { setType(t.value); setCategoryId('') }}
-                  disabled={!enabled.type}
-                  className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-40',
-                    type === t.value && enabled.type
-                      ? `${t.color} text-white`
-                      : 'bg-gray-800 border-gray-700 text-gray-400')}
-                >
-                  {t.label}
-                </button>
+                <Chip key={t.value} label={t.label} active={type === t.value}
+                  onClick={() => { setType(t.value); setCategoryId(KEEP) }} color={t.value} />
               ))}
             </div>
-          </FieldRow>
+          </Field>
 
-          {/* Category */}
-          <FieldRow label="Categoría" active={enabled.category_id} onToggle={() => toggle('category_id')}>
+          {/* Categoría */}
+          <Field label="Categoría" changed={categoryId !== KEEP}>
             <select
               value={categoryId}
               onChange={e => setCategoryId(e.target.value)}
-              disabled={!enabled.category_id}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 disabled:opacity-40"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500"
             >
-              <option value="">Sin categoría</option>
+              <option value={KEEP}>Sin cambio</option>
+              <option value="">— Sin categoría —</option>
               {filteredCategories.map(c => (
                 <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
               ))}
             </select>
-          </FieldRow>
+          </Field>
 
-          {/* Account */}
-          <FieldRow label="Cuenta" active={enabled.account_id} onToggle={() => toggle('account_id')}>
+          {/* Cuenta */}
+          <Field label="Cuenta" changed={accountId !== KEEP}>
             <select
               value={accountId}
               onChange={e => setAccountId(e.target.value)}
-              disabled={!enabled.account_id}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 disabled:opacity-40"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500"
             >
-              <option value="">Sin cuenta</option>
+              <option value={KEEP}>Sin cambio</option>
+              <option value="">— Sin cuenta —</option>
               {accounts.map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
-          </FieldRow>
+          </Field>
 
-          {/* Business */}
-          <FieldRow label="Personal / Negocio" active={enabled.business_id} onToggle={() => toggle('business_id')}>
+          {/* Personal / Negocio */}
+          <Field label="Personal / Negocio" changed={businessId !== KEEP}>
             <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setBusinessId('__personal__')}
-                disabled={!enabled.business_id}
-                className={cn('px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors disabled:opacity-40',
-                  businessId === '__personal__' && enabled.business_id
-                    ? 'bg-emerald-700 border-emerald-600 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-400')}
-              >
-                👤 Personal
-              </button>
+              <Chip label="Sin cambio" active={businessId === KEEP}    onClick={() => setBusinessId(KEEP)}     color="neutral" />
+              <Chip label="👤 Personal" active={businessId === PERSONAL} onClick={() => setBusinessId(PERSONAL)} color="green" />
               {businesses.map(b => (
-                <button key={b.id}
-                  onClick={() => setBusinessId(b.id)}
-                  disabled={!enabled.business_id}
-                  className={cn('px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors disabled:opacity-40',
-                    businessId === b.id && enabled.business_id
-                      ? 'bg-violet-700 border-violet-600 text-white'
-                      : 'bg-gray-800 border-gray-700 text-gray-400')}
-                >
-                  🏢 {b.name}
-                </button>
+                <Chip key={b.id} label={`🏢 ${b.name}`} active={businessId === b.id}
+                  onClick={() => setBusinessId(b.id)} color="violet" />
               ))}
             </div>
-          </FieldRow>
+          </Field>
 
-          {/* Date */}
-          <FieldRow label="Fecha" active={enabled.date} onToggle={() => toggle('date')}>
+          {/* Fecha */}
+          <Field label="Fecha" changed={date !== ''}>
             <input
               type="date"
               value={date}
               onChange={e => setDate(e.target.value)}
-              disabled={!enabled.date}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 disabled:opacity-40"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500"
             />
-          </FieldRow>
+            {date === '' && <p className="text-xs text-gray-600 mt-1">Deja vacío para no cambiar la fecha</p>}
+          </Field>
 
-          {/* Notes */}
-          <FieldRow label="Notas" active={enabled.notes} onToggle={() => toggle('notes')}>
+          {/* Notas */}
+          <Field label="Notas" changed={notes !== KEEP}>
             <input
               type="text"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              disabled={!enabled.notes}
-              placeholder="Nota que se aplicará a todas..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-indigo-500 disabled:opacity-40"
+              value={notesVal}
+              onChange={e => { setNotesVal(e.target.value); setNotes('__set__') }}
+              placeholder="Escribe para aplicar a todas (vacío = borrar nota)..."
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-indigo-500"
             />
-          </FieldRow>
+            {notes === KEEP && <p className="text-xs text-gray-600 mt-1">Deja vacío para no cambiar las notas</p>}
+          </Field>
 
-          {error && <p className="text-red-400 text-xs pt-1">{error}</p>}
+          {error && <p className="text-red-400 text-xs bg-red-900/20 border border-red-900 rounded-lg px-3 py-2">{error}</p>}
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-1">
             <button onClick={onClose}
               className="flex-1 py-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-gray-300 text-sm transition-colors">
               Cancelar
             </button>
-            <button onClick={handleApply} disabled={loading}
-              className="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm transition-colors disabled:opacity-50">
+            <button onClick={handleApply} disabled={loading || !anyChange}
+              className="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm transition-colors disabled:opacity-40">
               {loading ? 'Aplicando...' : `Aplicar a ${selectedIds.length}`}
             </button>
           </div>
@@ -202,24 +181,39 @@ export function BulkEditModal({ selectedIds, onClose, onDone }: Props) {
   )
 }
 
-function FieldRow({ label, active, onToggle, children }: {
-  label: string; active: boolean; onToggle: () => void; children: React.ReactNode
-}) {
+function Field({ label, changed, children }: { label: string; changed: boolean; children: React.ReactNode }) {
   return (
-    <div className={cn('rounded-xl border p-3 transition-colors', active ? 'border-indigo-700 bg-indigo-950/30' : 'border-gray-800 bg-gray-900/50')}>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex items-center justify-between w-full mb-2.5"
-      >
-        <span className={cn('text-xs font-semibold uppercase tracking-wider', active ? 'text-indigo-400' : 'text-gray-500')}>
-          {label}
-        </span>
-        <span className={cn('w-8 h-4 rounded-full transition-colors relative flex-shrink-0', active ? 'bg-indigo-600' : 'bg-gray-700')}>
-          <span className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform', active ? 'translate-x-4' : 'translate-x-0.5')} />
-        </span>
-      </button>
+    <div className={cn('rounded-xl border p-3 transition-colors', changed ? 'border-indigo-700 bg-indigo-950/20' : 'border-gray-800')}>
+      <p className={cn('text-xs font-semibold uppercase tracking-wider mb-2', changed ? 'text-indigo-400' : 'text-gray-500')}>
+        {label} {changed && <span className="normal-case tracking-normal font-normal text-indigo-500">· se aplicará</span>}
+      </p>
       {children}
     </div>
+  )
+}
+
+function Chip({ label, active, onClick, color }: { label: string; active: boolean; onClick: () => void; color: string }) {
+  const activeClass =
+    color === 'neutral'    ? 'bg-gray-600 border-gray-500 text-white' :
+    color === 'expense'    ? 'bg-red-600 border-red-600 text-white' :
+    color === 'income'     ? 'bg-emerald-600 border-emerald-600 text-white' :
+    color === 'investment' ? 'bg-violet-600 border-violet-600 text-white' :
+    color === 'credit'     ? 'bg-orange-600 border-orange-600 text-white' :
+    color === 'green'      ? 'bg-emerald-700 border-emerald-600 text-white' :
+    color === 'violet'     ? 'bg-violet-700 border-violet-600 text-white' :
+    'bg-indigo-600 border-indigo-600 text-white'
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+        active ? activeClass : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
+      )}
+    >
+      {active && <Check className="w-3 h-3" />}
+      {label}
+    </button>
   )
 }
