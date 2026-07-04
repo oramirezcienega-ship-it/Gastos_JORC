@@ -41,6 +41,8 @@ export async function GET(req: NextRequest) {
   const totalIncome = transactions.filter((t: any) => t.type === 'income').reduce((s: number, t: any) => s + t.amount, 0)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalInvestments = transactions.filter((t: any) => t.type === 'investment').reduce((s: number, t: any) => s + t.amount, 0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const totalCredits = transactions.filter((t: any) => t.type === 'credit').reduce((s: number, t: any) => s + t.amount, 0)
 
   const monthly: Record<string, { expense: number; income: number; investment: number; credit: number }> = {}
   for (const t of transactions) {
@@ -72,8 +74,9 @@ export async function GET(req: NextRequest) {
       totalExpenses,
       totalIncome,
       totalInvestments,
-      balance: totalIncome - totalExpenses - totalInvestments,
-      savingsRate: totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0,
+      totalCredits,
+      balance: totalIncome - totalExpenses - totalCredits - totalInvestments,
+      savingsRate: totalIncome > 0 ? ((totalIncome - totalExpenses - totalCredits) / totalIncome) * 100 : 0,
     },
     monthly: Object.entries(monthly)
       .map(([month, data]) => ({ month, ...data }))

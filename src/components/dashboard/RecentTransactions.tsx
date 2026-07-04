@@ -12,6 +12,7 @@ const typeLabels: Record<string, { label: string; color: string }> = {
   expense: { label: 'Gasto', color: 'text-red-400' },
   income: { label: 'Ingreso', color: 'text-emerald-400' },
   investment: { label: 'Inversión', color: 'text-violet-400' },
+  credit: { label: 'Crédito', color: 'text-amber-400' },
 }
 
 export function RecentTransactions({ transactions, onEdit }: Props) {
@@ -33,7 +34,7 @@ export function RecentTransactions({ transactions, onEdit }: Props) {
                 )}
               >
                 <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-800 text-sm flex-shrink-0">
-                  {t.category?.icon ?? (t.type === 'income' ? '💵' : t.type === 'investment' ? '📈' : '💳')}
+                  {t.category?.icon ?? (t.type === 'income' ? '💵' : t.type === 'investment' ? '📈' : t.type === 'credit' ? '💳' : '🧾')}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-200 truncate">{t.description}</p>
@@ -43,8 +44,8 @@ export function RecentTransactions({ transactions, onEdit }: Props) {
                     {t.business && <span>· {t.business.name}</span>}
                   </div>
                 </div>
-                <span className={cn('font-semibold text-sm flex-shrink-0', meta.color)}>
-                  {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
+                <span className={cn('font-semibold text-sm flex-shrink-0', meta?.color ?? 'text-gray-400')}>
+                  {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                 </span>
               </div>
             )

@@ -76,6 +76,7 @@ export function MonthlyChart({ data }: Props) {
             <Legend formatter={v => <span style={{ color: '#9ca3af', fontSize: 12 }}>{v}</span>} />
             <Bar dataKey="income" name="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
             <Bar dataKey="expense" name="Gastos" fill="#ef4444" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="credit" name="Créditos" fill="#f59e0b" radius={[4, 4, 0, 0]} />
             <Bar dataKey="investment" name="Inversiones" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
           </BarChart>
         ) : (
@@ -89,6 +90,10 @@ export function MonthlyChart({ data }: Props) {
                 <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
                 <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
               </linearGradient>
+              <linearGradient id="credit" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+              </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
             <XAxis
@@ -101,6 +106,7 @@ export function MonthlyChart({ data }: Props) {
             <Legend formatter={v => <span style={{ color: '#9ca3af', fontSize: 12 }}>{v}</span>} />
             <Area dataKey="income" name="Ingresos" stroke="#10b981" fill="url(#income)" strokeWidth={2} />
             <Area dataKey="expense" name="Gastos" stroke="#ef4444" fill="url(#expense)" strokeWidth={2} />
+            <Area dataKey="credit" name="Créditos" stroke="#f59e0b" fill="url(#credit)" strokeWidth={2} />
             <Area dataKey="investment" name="Inversiones" stroke="#8b5cf6" fill="none" strokeWidth={2} strokeDasharray="4 2" />
           </AreaChart>
         )}

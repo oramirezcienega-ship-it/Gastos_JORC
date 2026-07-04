@@ -44,10 +44,11 @@ export interface DashboardData {
     totalExpenses: number
     totalIncome: number
     totalInvestments: number
+    totalCredits: number
     balance: number
     savingsRate: number
   }
-  monthly: Array<{ month: string; expense: number; income: number; investment: number }>
+  monthly: Array<{ month: string; expense: number; income: number; investment: number; credit: number }>
   byCategory: Array<{ name: string; color: string; icon: string; amount: number; type: string }>
   byBusiness: Array<{ name: string; color: string; amount: number }>
   recentTransactions: Transaction[]

@@ -6,24 +6,46 @@ import { MonthlyChart } from '@/components/dashboard/MonthlyChart'
 import { CategoryBreakdown } from '@/components/dashboard/CategoryBreakdown'
 import { BusinessBreakdown } from '@/components/dashboard/BusinessBreakdown'
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions'
+import { SectionView } from '@/components/dashboard/SectionView'
 import { TransactionModal } from '@/components/transactions/TransactionModal'
 import { UploadZone } from '@/components/upload/UploadZone'
 import { Transaction } from '@/lib/supabase/types'
 import { getMonthName } from '@/lib/utils'
-import { Plus, Upload, RefreshCw } from 'lucide-react'
+import { Plus, Upload, RefreshCw, LayoutDashboard, TrendingUp, TrendingDown, CreditCard, PiggyBank, Wallet } from 'lucide-react'
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
 const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+
+type ActiveSection = null | 'income' | 'expense' | 'credit' | 'investment' | 'balance'
+
+const SECTION_TABS: Array<{
+  id: ActiveSection
+  label: string
+  icon: React.ElementType
+  color: string
+}> = [
+  { id: null, label: 'General', icon: LayoutDashboard, color: 'text-indigo-400' },
+  { id: 'income', label: 'Ingresos', icon: TrendingUp, color: 'text-emerald-400' },
+  { id: 'expense', label: 'Gastos', icon: TrendingDown, color: 'text-red-400' },
+  { id: 'credit', label: 'Créditos', icon: CreditCard, color: 'text-amber-400' },
+  { id: 'investment', label: 'Inversiones', icon: PiggyBank, color: 'text-violet-400' },
+  { id: 'balance', label: 'Balance', icon: Wallet, color: 'text-sky-400' },
+]
 
 export default function DashboardPage() {
   const { dashboardData, isLoading, selectedYear, selectedMonth, setYear, setMonth, fetchDashboard } = useAppStore()
   const [editingTx, setEditingTx] = useState<Transaction | null | undefined>(undefined)
   const [showUpload, setShowUpload] = useState(false)
+  const [activeSection, setActiveSection] = useState<ActiveSection>(null)
+
+  const handleSectionClick = (section: 'income' | 'expense' | 'credit' | 'investment' | 'balance') => {
+    setActiveSection(prev => prev === section ? null : section)
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">Dashboard</h1>
           <p className="text-gray-500 text-sm mt-0.5">
@@ -79,24 +101,68 @@ export default function DashboardPage() {
         </div>
       ) : dashboardData ? (
         <div className="space-y-5">
-          <SummaryCards data={dashboardData.summary} />
+          {/* Tarjetas de resumen — clicables para filtrar sección */}
+          <SummaryCards
+            data={dashboardData.summary}
+            onSectionClick={handleSectionClick}
+            activeSection={activeSection}
+          />
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-            <div className="xl:col-span-2">
-              <MonthlyChart data={dashboardData.monthly} />
-            </div>
-            <CategoryBreakdown data={dashboardData.byCategory} />
+          {/* Tabs de navegación por sección */}
+          <div className="flex items-center gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 overflow-x-auto">
+            {SECTION_TABS.map(tab => {
+              const isActive = activeSection === tab.id
+              const Icon = tab.icon
+              return (
+                <button
+                  key={String(tab.id)}
+                  onClick={() => setActiveSection(tab.id)}
+                  className={[
+                    'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0',
+                    isActive
+                      ? `bg-gray-800 ${tab.color}`
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50',
+                  ].join(' ')}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              )
+            })}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div className="lg:col-span-2">
-              <RecentTransactions
-                transactions={dashboardData.recentTransactions}
-                onEdit={tx => setEditingTx(tx)}
-              />
+          {/* Vista General */}
+          {activeSection === null && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                <div className="xl:col-span-2">
+                  <MonthlyChart data={dashboardData.monthly} />
+                </div>
+                <CategoryBreakdown data={dashboardData.byCategory} />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div className="lg:col-span-2">
+                  <RecentTransactions
+                    transactions={dashboardData.recentTransactions}
+                    onEdit={tx => setEditingTx(tx)}
+                  />
+                </div>
+                <BusinessBreakdown data={dashboardData.byBusiness} />
+              </div>
             </div>
-            <BusinessBreakdown data={dashboardData.byBusiness} />
-          </div>
+          )}
+
+          {/* Vista por sección */}
+          {activeSection !== null && (
+            <SectionView
+              section={activeSection}
+              summary={dashboardData.summary}
+              transactions={dashboardData.recentTransactions}
+              byCategory={dashboardData.byCategory}
+              onEdit={tx => setEditingTx(tx)}
+            />
+          )}
         </div>
       ) : (
         <div className="text-center py-24">
