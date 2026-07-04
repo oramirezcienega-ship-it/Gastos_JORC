@@ -91,20 +91,56 @@ export default function TransactionsPage() {
   const totalPages = Math.ceil(total / 50)
   const active = activeFilterCount(filters)
 
-  const cycleSort = (col: 'date' | 'amount') => {
-    const next =
-      filters.sort === `${col}_desc` ? `${col}_asc`
-      : filters.sort === `${col}_asc` ? `${col}_desc`
-      : `${col}_desc`
-    setFilters(f => ({ ...f, sort: next }))
-    setPage(1)
+  // clientSort handles joined columns (account, category, business) locally
+  const [clientSort, setClientSort] = useState<{ col: string; dir: 'asc' | 'desc' } | null>(null)
+
+  // Server-sort columns (triggers reload)
+  const serverCols = ['date', 'description', 'type', 'amount'] as const
+  type ServerCol = typeof serverCols[number]
+
+  const cycleSort = (col: string) => {
+    setClientSort(null)
+    if (serverCols.includes(col as ServerCol)) {
+      const next = filters.sort === `${col}_desc` ? `${col}_asc` : `${col}_desc`
+      setFilters(f => ({ ...f, sort: next }))
+      setPage(1)
+    } else {
+      setClientSort(prev =>
+        prev?.col === col
+          ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
+          : { col, dir: 'asc' }
+      )
+    }
   }
 
-  const SortIcon = ({ col }: { col: 'date' | 'amount' }) => {
-    if (filters.sort === `${col}_desc`) return <ArrowDown className="w-3 h-3 ml-1 inline text-indigo-400" />
-    if (filters.sort === `${col}_asc`) return <ArrowUp className="w-3 h-3 ml-1 inline text-indigo-400" />
+  const getSortDir = (col: string): 'asc' | 'desc' | null => {
+    if (serverCols.includes(col as ServerCol)) {
+      if (filters.sort === `${col}_desc`) return 'desc'
+      if (filters.sort === `${col}_asc`) return 'asc'
+      return null
+    }
+    return clientSort?.col === col ? clientSort.dir : null
+  }
+
+  const SortIcon = ({ col }: { col: string }) => {
+    const dir = getSortDir(col)
+    if (dir === 'desc') return <ArrowDown className="w-3 h-3 ml-1 inline text-indigo-400" />
+    if (dir === 'asc') return <ArrowUp className="w-3 h-3 ml-1 inline text-indigo-400" />
     return <ArrowUpDown className="w-3 h-3 ml-1 inline text-gray-600" />
   }
+
+  const sortedTransactions = clientSort ? [...transactions].sort((a, b) => {
+    const dir = clientSort.dir === 'asc' ? 1 : -1
+    const aVal = clientSort.col === 'account' ? (a.account?.name ?? '')
+      : clientSort.col === 'category' ? (a.category?.name ?? '')
+      : clientSort.col === 'business' ? (a.business?.name ?? '')
+      : ''
+    const bVal = clientSort.col === 'account' ? (b.account?.name ?? '')
+      : clientSort.col === 'category' ? (b.category?.name ?? '')
+      : clientSort.col === 'business' ? (b.business?.name ?? '')
+      : ''
+    return aVal.localeCompare(bVal, 'es') * dir
+  }) : transactions
 
   return (
     <div className="p-6 max-w-6xl mx-auto pb-24">
@@ -219,30 +255,33 @@ export default function TransactionsPage() {
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
+              <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wider select-none">
                 <th className="px-4 py-3 w-8">
                   <input type="checkbox" checked={allSelected} onChange={toggleAll}
                     className="rounded border-gray-600 bg-gray-800 text-indigo-500 cursor-pointer" />
                 </th>
-                <th className="text-left px-4 py-3">
-                  <button onClick={() => cycleSort('date')} className="hover:text-gray-300 transition-colors flex items-center">
-                    Fecha <SortIcon col="date" />
-                  </button>
-                </th>
-                <th className="text-left px-4 py-3">Descripción</th>
-                <th className="text-left px-4 py-3">Cuenta</th>
-                <th className="text-left px-4 py-3">Categoría</th>
-                <th className="text-left px-4 py-3">Personal / Negocio</th>
-                <th className="text-left px-4 py-3">Tipo</th>
-                <th className="text-right px-4 py-3">
-                  <button onClick={() => cycleSort('amount')} className="hover:text-gray-300 transition-colors flex items-center ml-auto">
-                    Monto <SortIcon col="amount" />
-                  </button>
-                </th>
+                {([
+                  { col: 'date', label: 'Fecha', align: 'left' },
+                  { col: 'description', label: 'Descripción', align: 'left' },
+                  { col: 'account', label: 'Cuenta', align: 'left' },
+                  { col: 'category', label: 'Categoría', align: 'left' },
+                  { col: 'business', label: 'Personal / Negocio', align: 'left' },
+                  { col: 'type', label: 'Tipo', align: 'left' },
+                  { col: 'amount', label: 'Monto', align: 'right' },
+                ] as const).map(({ col, label, align }) => (
+                  <th key={col} className={`px-4 py-3 text-${align}`}>
+                    <button
+                      onClick={() => cycleSort(col)}
+                      className={cn('hover:text-gray-300 transition-colors inline-flex items-center gap-0.5', align === 'right' && 'ml-auto')}
+                    >
+                      {label}<SortIcon col={col} />
+                    </button>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {transactions.map(t => (
+              {sortedTransactions.map(t => (
                 <tr key={t.id}
                   className={cn('border-b border-gray-800/50 transition-colors',
                     selected.has(t.id) ? 'bg-indigo-900/20' : 'hover:bg-gray-800/50')}

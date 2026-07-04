@@ -34,6 +34,10 @@ export async function GET(req: NextRequest) {
   const [sortCol, sortDir] = sort === 'amount_asc' ? ['amount', true]
     : sort === 'amount_desc' ? ['amount', false]
     : sort === 'date_asc' ? ['date', true]
+    : sort === 'description_asc' ? ['description', true]
+    : sort === 'description_desc' ? ['description', false]
+    : sort === 'type_asc' ? ['type', true]
+    : sort === 'type_desc' ? ['type', false]
     : ['date', false]
 
   const { data, count, error } = await query
