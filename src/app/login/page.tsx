@@ -30,13 +30,10 @@ export default function LoginPage() {
         router.push('/dashboard')
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message)
-      } else if (err && typeof err === 'object' && 'message' in err) {
-        setError(String((err as { message: unknown }).message))
-      } else {
-        setError(JSON.stringify(err) || 'Error desconocido')
-      }
+      console.error('Auth error:', err)
+      const e = err as { message?: string; status?: number; name?: string; code?: string }
+      const parts = [e?.name, e?.status, e?.code, e?.message].filter(Boolean)
+      setError(parts.length ? parts.join(' · ') : 'Error de conexión con Supabase')
     } finally {
       setLoading(false)
     }
