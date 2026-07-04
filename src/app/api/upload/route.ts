@@ -21,6 +21,9 @@ export async function POST(req: NextRequest) {
 
   const storagePath = `${user.id}/${Date.now()}_${file.name}`
   const bytes = await file.arrayBuffer()
+  // Slice before upload: the Fetch API may transfer (detach) the ArrayBuffer
+  // when it's handed to the network layer, making it unusable afterwards.
+  const bytesForParsing = bytes.slice(0)
 
   const { error: uploadError } = await supabase.storage
     .from('statements')
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   // Parse synchronously — serverless functions terminate on response,
   // so fire-and-forget doesn't work in this environment.
-  await parseAndImport(fileRecord.id, storagePath, fileType, user.id, bytes)
+  await parseAndImport(fileRecord.id, storagePath, fileType, user.id, bytesForParsing)
 
   return NextResponse.json({ file: fileRecord })
 }
