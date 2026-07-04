@@ -73,7 +73,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   dashboardData: null,
   isLoading: false,
   selectedYear: new Date().getFullYear(),
-  selectedMonth: new Date().getMonth() + 1,
+  selectedMonth: null,
 
   initialize: async () => {
     const { createClient } = await import('@/lib/supabase/client')

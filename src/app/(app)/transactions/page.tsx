@@ -102,6 +102,7 @@ export default function TransactionsPage() {
               <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
                 <th className="text-left px-5 py-3">Fecha</th>
                 <th className="text-left px-5 py-3">Descripción</th>
+                <th className="text-left px-5 py-3">Cuenta</th>
                 <th className="text-left px-5 py-3">Categoría</th>
                 <th className="text-left px-5 py-3">Tipo</th>
                 <th className="text-right px-5 py-3">Monto</th>
@@ -114,7 +115,7 @@ export default function TransactionsPage() {
                   onClick={() => setEditingTx(t)}
                   className="border-b border-gray-800/50 hover:bg-gray-800/50 cursor-pointer transition-colors"
                 >
-                  <td className="px-5 py-3 text-sm text-gray-400">{formatDate(t.date)}</td>
+                  <td className="px-5 py-3 text-sm text-gray-400 whitespace-nowrap">{formatDate(t.date)}</td>
                   <td className="px-5 py-3 text-sm text-gray-200">
                     <div className="flex items-center gap-2">
                       <span>{t.category?.icon ?? '📌'}</span>
@@ -122,6 +123,16 @@ export default function TransactionsPage() {
                     </div>
                     {t.business && (
                       <span className="text-xs text-gray-500 ml-6">{t.business.name}</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-sm text-gray-400 whitespace-nowrap">
+                    {t.account ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+                        {t.account.name}
+                      </span>
+                    ) : (
+                      <span className="text-gray-600">—</span>
                     )}
                   </td>
                   <td className="px-5 py-3 text-sm text-gray-400">{t.category?.name ?? '—'}</td>
