@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { TransactionType } from '@/lib/supabase/types'
-import { X, Toggle } from 'lucide-react'
+import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
