@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import { Transaction } from '@/lib/supabase/types'
 import { DashboardData } from '@/lib/store'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -84,22 +85,28 @@ function getTotalForSection(section: SectionType, summary: DashboardData['summar
   return summary.balance
 }
 
+const TYPE_COLORS: Record<string, string> = {
+  income: 'text-emerald-400',
+  expense: 'text-red-400',
+  credit: 'text-amber-400',
+  investment: 'text-violet-400',
+}
+
 export function SectionView({ section, summary, transactions, byCategory, onEdit }: Props) {
   const meta = SECTION_META[section]
   const Icon = meta.icon
   const total = getTotalForSection(section, summary)
 
-  // Filtrar transacciones según la sección
   const filtered = meta.filterType
     ? transactions.filter(t => t.type === meta.filterType)
     : transactions
 
-  // Filtrar categorías
   const filteredCategories = meta.filterType
     ? byCategory.filter(c => c.type === meta.filterType)
     : byCategory
 
   const categoryTotal = filteredCategories.reduce((s, c) => s + c.amount, 0)
+  const listTotal = filtered.reduce((s, t) => s + t.amount, 0)
 
   return (
     <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -107,7 +114,7 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
       <div className={cn('rounded-2xl border p-5', meta.bg, meta.border)}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className={cn('p-3 rounded-xl', meta.bg, 'border', meta.border)}>
+            <div className={cn('p-3 rounded-xl border', meta.bg, meta.border)}>
               <Icon className={cn('w-6 h-6', meta.color)} />
             </div>
             <div>
@@ -161,57 +168,52 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
               {filtered.length} registros
             </span>
           </div>
+
           {filtered.length === 0 ? (
             <div className="text-center py-10">
               <p className="text-3xl mb-2">🔍</p>
               <p className="text-gray-500 text-sm">Sin transacciones de {meta.label.toLowerCase()} en este período</p>
             </div>
           ) : (
-            <div className="space-y-1 max-h-[32rem] overflow-y-auto pr-1">
-              {filtered.map(t => {
-                const isIncome = t.type === 'income'
-                const colorMap: Record<string, string> = {
-                  income: 'text-emerald-400',
-                  expense: 'text-red-400',
-                  credit: 'text-amber-400',
-                  investment: 'text-violet-400',
-                }
-                return (
-                  <div
-                    key={t.id}
-                    onClick={() => onEdit?.(t)}
-                    className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer group"
-                  >
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-800 text-sm flex-shrink-0">
-                      {t.category?.icon ?? (isIncome ? '💵' : t.type === 'investment' ? '📈' : t.type === 'credit' ? '💳' : '🧾')}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-200 truncate">{t.description}</p>
-                      <div className="flex gap-2 text-xs text-gray-500">
-                        <span>{formatDate(t.date)}</span>
-                        {t.category && <span>· {t.category.name}</span>}
-                        {t.business && <span>· {t.business.name}</span>}
+            <>
+              <div className="space-y-1 max-h-[32rem] overflow-y-auto pr-1">
+                {filtered.map(t => {
+                  const isIncome = t.type === 'income'
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => onEdit?.(t)}
+                      className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer group"
+                    >
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-800 text-sm flex-shrink-0">
+                        {t.category?.icon ?? (isIncome ? '💵' : t.type === 'investment' ? '📈' : t.type === 'credit' ? '💳' : '🧾')}
                       </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-200 truncate">{t.description}</p>
+                        <div className="flex gap-2 text-xs text-gray-500">
+                          <span>{formatDate(t.date)}</span>
+                          {t.category && <span>· {t.category.name}</span>}
+                          {t.business && <span>· {t.business.name}</span>}
+                        </div>
+                      </div>
+                      <span className={cn('font-semibold text-sm flex-shrink-0', TYPE_COLORS[t.type] ?? 'text-gray-400')}>
+                        {isIncome ? '+' : '-'}{formatCurrency(t.amount)}
+                      </span>
                     </div>
-                    <span className={cn('font-semibold text-sm flex-shrink-0', colorMap[t.type] ?? 'text-gray-400')}>
-                      {isIncome ? '+' : '-'}{formatCurrency(t.amount)}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-            {/* Subtotal verificable */}
-            {filtered.length > 0 && (
+                  )
+                })}
+              </div>
+
+              {/* Subtotal verificable — debe coincidir con el total del banner */}
               <div className="mt-3 pt-3 border-t border-gray-800 flex items-center justify-between">
                 <span className="text-xs text-gray-500">
-                  Suma de {filtered.length} transacciones mostradas
+                  Suma de {filtered.length} transacciones
                 </span>
                 <span className={cn('text-sm font-bold', meta.color)}>
-                  {section === 'income' ? '+' : '-'}
-                  {formatCurrency(filtered.reduce((s, t) => s + t.amount, 0))}
+                  {section === 'income' ? '+' : '-'}{formatCurrency(listTotal)}
                 </span>
               </div>
-            )}
+            </>
           )}
         </div>
 

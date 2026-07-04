@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import { useState } from 'react'
 import { useAppStore } from '@/lib/store'
 import { SummaryCards } from '@/components/dashboard/SummaryCards'
