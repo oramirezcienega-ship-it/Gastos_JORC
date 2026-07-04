@@ -63,6 +63,20 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = getAdminClient()
   const body = await req.json()
+
+  // Bulk update: { ids: string[], updates: {...} }
+  if (Array.isArray(body.ids)) {
+    const { ids, updates } = body
+    const { error } = await supabase
+      .from('transactions')
+      .update(updates)
+      .in('id', ids)
+      .eq('user_id', user.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ updated: ids.length })
+  }
+
+  // Single update
   const { id, ...updates } = body
   const { data, error } = await supabase
     .from('transactions')
