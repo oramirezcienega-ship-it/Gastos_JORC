@@ -3,9 +3,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAppStore } from '@/lib/store'
 import { Transaction } from '@/lib/supabase/types'
 import { TransactionModal } from '@/components/transactions/TransactionModal'
-import { BulkCategorizeModal } from '@/components/transactions/BulkCategorizeModal'
+import { BulkEditModal } from '@/components/transactions/BulkEditModal'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Search, Plus, SlidersHorizontal, X, ArrowUpDown, ArrowUp, ArrowDown, Tag } from 'lucide-react'
+import { Search, Plus, SlidersHorizontal, X, ArrowUpDown, ArrowUp, ArrowDown, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const TYPE_COLORS: Record<string, string> = {
@@ -349,8 +349,8 @@ export default function TransactionsPage() {
             onClick={() => setShowBulk(true)}
             className="flex items-center gap-2 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl transition-colors"
           >
-            <Tag className="w-4 h-4" />
-            Categorizar
+            <Pencil className="w-4 h-4" />
+            Editar selección
           </button>
           <button
             onClick={() => setSelected(new Set())}
@@ -365,7 +365,7 @@ export default function TransactionsPage() {
         <TransactionModal transaction={editingTx} onClose={() => { setEditingTx(undefined); load(); fetchDashboard() }} />
       )}
       {showBulk && (
-        <BulkCategorizeModal
+        <BulkEditModal
           selectedIds={[...selected]}
           onClose={() => setShowBulk(false)}
           onDone={() => { setShowBulk(false); load() }}
