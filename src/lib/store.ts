@@ -18,6 +18,7 @@ interface AppState {
   // Filters
   selectedYear: number
   selectedMonth: number | null
+  selectedBusiness: string | null  // null = todos, 'personal' = sin negocio, UUID = negocio específico
 
   // Actions
   initialize: () => Promise<void>
@@ -37,6 +38,7 @@ interface AppState {
   uploadFile: (file: File, accountId?: string, month?: number, year?: number) => Promise<{ fileId: string }>
   setYear: (year: number) => void
   setMonth: (month: number | null) => void
+  setBusiness: (business: string | null) => void
 }
 
 export interface DashboardData {
@@ -78,6 +80,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   selectedYear: new Date().getFullYear(),
   selectedMonth: null,
+  selectedBusiness: null,
 
   initialize: async () => {
     const { createClient } = await import('@/lib/supabase/client')
@@ -95,12 +98,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   fetchDashboard: async () => {
-    const { token, selectedYear, selectedMonth } = get()
+    const { token, selectedYear, selectedMonth, selectedBusiness } = get()
     if (!token) return
     set({ isLoading: true })
     try {
       const params = new URLSearchParams({ year: selectedYear.toString() })
       if (selectedMonth) params.set('month', selectedMonth.toString())
+      if (selectedBusiness) params.set('business', selectedBusiness)
       const data = await apiFetch(`/api/dashboard?${params}`, token)
       set({ dashboardData: data })
     } finally {
@@ -221,6 +225,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setMonth: (month) => {
     set({ selectedMonth: month })
+    get().fetchDashboard()
+  },
+
+  setBusiness: (business) => {
+    set({ selectedBusiness: business })
     get().fetchDashboard()
   },
 }))

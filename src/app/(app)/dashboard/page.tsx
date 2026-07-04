@@ -11,7 +11,7 @@ import { TransactionModal } from '@/components/transactions/TransactionModal'
 import { UploadZone } from '@/components/upload/UploadZone'
 import { Transaction } from '@/lib/supabase/types'
 import { getMonthName } from '@/lib/utils'
-import { Plus, Upload, RefreshCw, LayoutDashboard, TrendingUp, TrendingDown, CreditCard, PiggyBank, Wallet } from 'lucide-react'
+import { Plus, Upload, RefreshCw, LayoutDashboard, TrendingUp, TrendingDown, CreditCard, PiggyBank, Wallet, Building2, User } from 'lucide-react'
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
 const YEARS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
@@ -33,7 +33,7 @@ const SECTION_TABS: Array<{
 ]
 
 export default function DashboardPage() {
-  const { dashboardData, isLoading, selectedYear, selectedMonth, setYear, setMonth, fetchDashboard } = useAppStore()
+  const { dashboardData, isLoading, selectedYear, selectedMonth, setYear, setMonth, fetchDashboard, businesses, selectedBusiness, setBusiness } = useAppStore()
   const [editingTx, setEditingTx] = useState<Transaction | null | undefined>(undefined)
   const [showUpload, setShowUpload] = useState(false)
   const [activeSection, setActiveSection] = useState<ActiveSection>(null)
@@ -48,8 +48,18 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-0.5">
+          <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1.5">
             {selectedMonth ? `${getMonthName(selectedMonth)} ${selectedYear}` : `Año ${selectedYear}`}
+            {selectedBusiness && (
+              <>
+                <span className="text-gray-700">·</span>
+                <span className="text-indigo-400 font-medium">
+                  {selectedBusiness === 'personal'
+                    ? 'Personal'
+                    : businesses.find(b => b.id === selectedBusiness)?.name ?? 'Negocio'}
+                </span>
+              </>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -94,6 +104,45 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* Filtro por negocio */}
+      {businesses.length > 0 && (
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
+          <span className="text-xs text-gray-500 font-medium mr-1">Vista:</span>
+          {[
+            { id: null, label: 'Todos', icon: null },
+            { id: 'personal', label: 'Personal', icon: 'personal' },
+            ...businesses.map(b => ({ id: b.id, label: b.name, icon: 'business', color: b.color }))
+          ].map(opt => {
+            const isActive = selectedBusiness === opt.id
+            const dotColor = 'color' in opt && opt.color ? opt.color : '#6366f1'
+            return (
+              <button
+                key={String(opt.id)}
+                onClick={() => setBusiness(opt.id)}
+                className={[
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200',
+                  isActive
+                    ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-300'
+                    : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600',
+                ].join(' ')}
+              >
+                {opt.icon === 'personal' ? (
+                  <User className="w-3 h-3" />
+                ) : opt.icon === 'business' ? (
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: dotColor }}
+                  />
+                ) : (
+                  <Building2 className="w-3 h-3" />
+                )}
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {isLoading && !dashboardData ? (
         <div className="flex items-center justify-center h-64">

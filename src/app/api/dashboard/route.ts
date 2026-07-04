@@ -10,6 +10,8 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const year = url.searchParams.get('year') ?? new Date().getFullYear().toString()
   const month = url.searchParams.get('month')
+  // 'personal' = sin negocio, un UUID = negocio específico, null/'all' = todos
+  const businessFilter = url.searchParams.get('business')
 
   let dateFrom: string
   let dateTo: string
@@ -23,13 +25,21 @@ export async function GET(req: NextRequest) {
     dateTo = `${year}-12-31`
   }
 
-  const { data: rawTransactions, error } = await supabase
+  let query = supabase
     .from('transactions')
     .select('*, category:categories(*), account:accounts(*), business:businesses(*)')
     .eq('user_id', user.id)
     .gte('date', dateFrom)
     .lte('date', dateTo)
     .order('date', { ascending: false })
+
+  if (businessFilter === 'personal') {
+    query = query.is('business_id', null)
+  } else if (businessFilter && businessFilter !== 'all') {
+    query = query.eq('business_id', businessFilter)
+  }
+
+  const { data: rawTransactions, error } = await query
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
