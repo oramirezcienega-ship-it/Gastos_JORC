@@ -167,7 +167,7 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
               <p className="text-gray-500 text-sm">Sin transacciones de {meta.label.toLowerCase()} en este período</p>
             </div>
           ) : (
-            <div className="space-y-1 max-h-96 overflow-y-auto pr-1">
+            <div className="space-y-1 max-h-[32rem] overflow-y-auto pr-1">
               {filtered.map(t => {
                 const isIncome = t.type === 'income'
                 const colorMap: Record<string, string> = {
@@ -200,6 +200,18 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
                 )
               })}
             </div>
+            {/* Subtotal verificable */}
+            {filtered.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-gray-800 flex items-center justify-between">
+                <span className="text-xs text-gray-500">
+                  Suma de {filtered.length} transacciones mostradas
+                </span>
+                <span className={cn('text-sm font-bold', meta.color)}>
+                  {section === 'income' ? '+' : '-'}
+                  {formatCurrency(filtered.reduce((s, t) => s + t.amount, 0))}
+                </span>
+              </div>
+            )}
           )}
         </div>
 

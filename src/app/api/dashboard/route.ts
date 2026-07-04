@@ -93,6 +93,6 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => a.month.localeCompare(b.month)),
     byCategory: Object.values(byCategory).sort((a, b) => b.amount - a.amount),
     byBusiness: Object.values(byBusiness).sort((a, b) => b.amount - a.amount),
-    recentTransactions: transactions.slice(0, 20),
+    recentTransactions: transactions,
   })
 }
