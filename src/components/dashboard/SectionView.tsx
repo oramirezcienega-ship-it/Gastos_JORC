@@ -1,10 +1,10 @@
 'use client'
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import { Transaction } from '@/lib/supabase/types'
 import { DashboardData } from '@/lib/store'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { TrendingUp, TrendingDown, CreditCard, PiggyBank, Wallet, Info } from 'lucide-react'
+import { TrendingUp, TrendingDown, CreditCard, PiggyBank, Wallet, Info, ArrowDownUp, Download } from 'lucide-react'
 
 type SectionType = 'income' | 'expense' | 'credit' | 'investment' | 'balance'
 
@@ -92,14 +92,41 @@ const TYPE_COLORS: Record<string, string> = {
   investment: 'text-violet-400',
 }
 
+function exportCSV(transactions: Transaction[], label: string) {
+  const rows = [
+    ['Fecha', 'Descripción', 'Tipo', 'Categoría', 'Cuenta', 'Negocio', 'Monto'],
+    ...transactions.map(t => [
+      t.date,
+      t.description,
+      t.type,
+      t.category?.name ?? '',
+      t.account?.name ?? '',
+      t.business?.name ?? '',
+      t.amount.toString(),
+    ]),
+  ]
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `gastos-jorc-${label}-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function SectionView({ section, summary, transactions, byCategory, onEdit }: Props) {
   const meta = SECTION_META[section]
   const Icon = meta.icon
   const total = getTotalForSection(section, summary)
+  const [sortByAmount, setSortByAmount] = useState(false)
 
-  const filtered = meta.filterType
-    ? transactions.filter(t => t.type === meta.filterType)
-    : transactions
+  const filtered = useMemo(() => {
+    const list = meta.filterType
+      ? transactions.filter(t => t.type === meta.filterType)
+      : transactions
+    return sortByAmount ? [...list].sort((a, b) => b.amount - a.amount) : list
+  }, [transactions, meta.filterType, sortByAmount])
 
   const filteredCategories = meta.filterType
     ? byCategory.filter(c => c.type === meta.filterType)
@@ -160,13 +187,29 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
       <div className={cn('grid gap-5', section !== 'balance' && filteredCategories.length > 0 ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1')}>
         {/* Lista de transacciones */}
         <div className={cn('bg-gray-900 border border-gray-800 rounded-xl p-5', section !== 'balance' && filteredCategories.length > 0 ? 'lg:col-span-2' : '')}>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
             <h3 className="font-semibold text-gray-100 text-sm">
               {section === 'balance' ? 'Todas las transacciones' : `Transacciones — ${meta.label}`}
             </h3>
-            <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-full">
-              {filtered.length} registros
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-full">
+                {filtered.length} registros
+              </span>
+              <button
+                onClick={() => setSortByAmount(s => !s)}
+                title={sortByAmount ? 'Ordenar por fecha' : 'Ordenar por monto'}
+                className={cn('p-1.5 rounded-lg transition-colors', sortByAmount ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200')}
+              >
+                <ArrowDownUp className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => exportCSV(filtered, meta.label.toLowerCase())}
+                title="Exportar CSV"
+                className="p-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           {filtered.length === 0 ? (
@@ -246,6 +289,17 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
                 )
               })}
             </div>
+            {filteredCategories.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between">
+                <span className="text-xs text-gray-500">
+                  Total categorizado
+                  {filteredCategories.length > 8 && ` (${filteredCategories.length} categorías)`}
+                </span>
+                <span className={cn('text-xs font-bold', meta.color)}>
+                  {formatCurrency(categoryTotal)}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
