@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const amountMin = url.searchParams.get('amount_min')
   const amountMax = url.searchParams.get('amount_max')
   const sort = url.searchParams.get('sort') ?? 'date_desc'
+  const business = url.searchParams.get('business') // 'personal' | uuid | null
 
   let query = supabase
     .from('transactions')
@@ -30,6 +31,8 @@ export async function GET(req: NextRequest) {
   if (dateTo) query = query.lte('date', dateTo)
   if (amountMin) query = query.gte('amount', parseFloat(amountMin))
   if (amountMax) query = query.lte('amount', parseFloat(amountMax))
+  if (business === 'personal') query = query.is('business_id', null)
+  else if (business) query = query.eq('business_id', business)
 
   const [sortCol, sortDir] = sort === 'amount_asc' ? ['amount', true]
     : sort === 'amount_desc' ? ['amount', false]
