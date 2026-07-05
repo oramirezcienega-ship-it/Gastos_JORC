@@ -51,7 +51,7 @@ export interface DashboardData {
     savingsRate: number
   }
   monthly: Array<{ month: string; expense: number; income: number; investment: number; credit: number }>
-  byCategory: Array<{ name: string; color: string; icon: string; amount: number; type: string }>
+  byCategory: Array<{ name: string; color: string; icon: string; amount: number; type: string; pendingAmount: number }>
   byBusiness: Array<{ name: string; color: string; amount: number }>
   recentTransactions: Transaction[]
 }

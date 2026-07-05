@@ -61,13 +61,30 @@ export async function GET(req: NextRequest) {
     monthly[key][t.type as 'expense' | 'income' | 'investment' | 'credit'] += t.amount
   }
 
-  const byCategory: Record<string, { name: string; color: string; icon: string; amount: number; type: string }> = {}
+  // Parse "NN DE MM" installment pattern from description (e.g. "03 DE 12 AMAZON A MESES")
+  function parseInstallment(description: string): { current: number; total: number } | null {
+    const m = description.match(/\b(\d{1,2})\s+DE\s+(\d{1,2})\b/i)
+    if (!m) return null
+    const current = parseInt(m[1])
+    const total = parseInt(m[2])
+    if (current > total || total < 2) return null
+    return { current, total }
+  }
+
+  // Use t.type (transaction type) so categories align with the section filter in the UI
+  const byCategory: Record<string, { name: string; color: string; icon: string; amount: number; type: string; pendingAmount: number }> = {}
   for (const t of transactions) {
     if (!t.category_id || !t.category) continue
     if (!byCategory[t.category_id]) {
-      byCategory[t.category_id] = { name: t.category.name, color: t.category.color, icon: t.category.icon ?? '', amount: 0, type: t.category.type }
+      byCategory[t.category_id] = { name: t.category.name, color: t.category.color, icon: t.category.icon ?? '', amount: 0, type: t.type, pendingAmount: 0 }
     }
     byCategory[t.category_id].amount += t.amount
+    if (t.type === 'credit') {
+      const inst = parseInstallment(t.description ?? '')
+      if (inst) {
+        byCategory[t.category_id].pendingAmount += (inst.total - inst.current) * t.amount
+      }
+    }
   }
 
   const byBusiness: Record<string, { name: string; color: string; amount: number }> = {}

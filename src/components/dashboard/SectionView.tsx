@@ -310,6 +310,11 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
                       <div className={cn('h-full rounded-full transition-all duration-500', meta.dot)}
                         style={{ width: `${pct}%` }} />
                     </div>
+                    {section === 'credit' && cat.pendingAmount > 0 && (
+                      <p className="text-[10px] text-amber-400/70 mt-1">
+                        Pendiente: {formatCurrency(cat.pendingAmount)}
+                      </p>
+                    )}
                   </button>
                 )
               })}
