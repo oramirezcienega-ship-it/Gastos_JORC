@@ -4,7 +4,7 @@ import { Transaction } from '@/lib/supabase/types'
 import { DashboardData } from '@/lib/store'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { TrendingUp, TrendingDown, CreditCard, PiggyBank, Wallet, Info, ArrowDownUp, Download } from 'lucide-react'
+import { TrendingUp, TrendingDown, CreditCard, PiggyBank, Wallet, Info, Download, X } from 'lucide-react'
 
 type SectionType = 'income' | 'expense' | 'credit' | 'investment' | 'balance'
 
@@ -120,20 +120,22 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
   const Icon = meta.icon
   const total = getTotalForSection(section, summary)
   const [sort, setSort] = useState<{ col: 'date' | 'amount' | 'description'; dir: 'asc' | 'desc' }>({ col: 'date', dir: 'desc' })
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   const cycleSort = (col: 'date' | 'amount' | 'description') => {
     setSort(s => s.col === col ? { col, dir: s.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: col === 'date' ? 'desc' : 'asc' })
   }
 
   const filtered = useMemo(() => {
-    const list = meta.filterType
+    let list = meta.filterType
       ? transactions.filter(t => t.type === meta.filterType)
       : transactions
+    if (selectedCategory) list = list.filter(t => t.category?.name === selectedCategory)
     const dir = sort.dir === 'asc' ? 1 : -1
     if (sort.col === 'amount') return [...list].sort((a, b) => (a.amount - b.amount) * dir)
     if (sort.col === 'description') return [...list].sort((a, b) => a.description.localeCompare(b.description, 'es') * dir)
     return sort.dir === 'asc' ? [...list].sort((a, b) => a.date.localeCompare(b.date)) : list
-  }, [transactions, meta.filterType, sort])
+  }, [transactions, meta.filterType, sort, selectedCategory])
 
   const filteredCategories = meta.filterType
     ? byCategory.filter(c => c.type === meta.filterType)
@@ -274,12 +276,26 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
         {/* Breakdown por categoría (no aplica en Balance) */}
         {section !== 'balance' && filteredCategories.length > 0 && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="font-semibold text-gray-100 text-sm mb-4">Por categoría</h3>
-            <div className="space-y-3">
-              {filteredCategories.slice(0, 8).map(cat => {
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-100 text-sm">Por categoría</h3>
+              {selectedCategory && (
+                <button onClick={() => setSelectedCategory(null)}
+                  className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300">
+                  <X className="w-3 h-3" /> Quitar filtro
+                </button>
+              )}
+            </div>
+            <div className="space-y-2 max-h-[28rem] overflow-y-auto pr-1">
+              {filteredCategories.map(cat => {
                 const pct = categoryTotal > 0 ? (cat.amount / categoryTotal) * 100 : 0
+                const isActive = selectedCategory === cat.name
                 return (
-                  <div key={cat.name}>
+                  <button
+                    key={cat.name}
+                    onClick={() => setSelectedCategory(isActive ? null : cat.name)}
+                    className={cn('w-full text-left rounded-lg p-2 transition-colors',
+                      isActive ? 'bg-indigo-900/40 ring-1 ring-indigo-600' : 'hover:bg-gray-800/60')}
+                  >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm">{cat.icon || '📁'}</span>
@@ -291,26 +307,17 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
                       </div>
                     </div>
                     <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                      <div
-                        className={cn('h-full rounded-full transition-all duration-500', meta.dot)}
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className={cn('h-full rounded-full transition-all duration-500', meta.dot)}
+                        style={{ width: `${pct}%` }} />
                     </div>
-                  </div>
+                  </button>
                 )
               })}
             </div>
-            {filteredCategories.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between">
-                <span className="text-xs text-gray-500">
-                  Total categorizado
-                  {filteredCategories.length > 8 && ` (${filteredCategories.length} categorías)`}
-                </span>
-                <span className={cn('text-xs font-bold', meta.color)}>
-                  {formatCurrency(categoryTotal)}
-                </span>
-              </div>
-            )}
+            <div className="mt-3 pt-3 border-t border-gray-800 flex items-center justify-between">
+              <span className="text-xs text-gray-500">Total categorizado ({filteredCategories.length} categorías)</span>
+              <span className={cn('text-xs font-bold', meta.color)}>{formatCurrency(categoryTotal)}</span>
+            </div>
           </div>
         )}
       </div>
