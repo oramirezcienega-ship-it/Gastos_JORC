@@ -119,15 +119,20 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
   const meta = SECTION_META[section]
   const Icon = meta.icon
   const total = getTotalForSection(section, summary)
-  const [sort, setSort] = useState<'date' | 'amount' | 'description'>('date')
+  const [sort, setSort] = useState<{ col: 'date' | 'amount' | 'description'; dir: 'asc' | 'desc' }>({ col: 'date', dir: 'desc' })
+
+  const cycleSort = (col: 'date' | 'amount' | 'description') => {
+    setSort(s => s.col === col ? { col, dir: s.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: col === 'date' ? 'desc' : 'asc' })
+  }
 
   const filtered = useMemo(() => {
     const list = meta.filterType
       ? transactions.filter(t => t.type === meta.filterType)
       : transactions
-    if (sort === 'amount') return [...list].sort((a, b) => b.amount - a.amount)
-    if (sort === 'description') return [...list].sort((a, b) => a.description.localeCompare(b.description, 'es'))
-    return list
+    const dir = sort.dir === 'asc' ? 1 : -1
+    if (sort.col === 'amount') return [...list].sort((a, b) => (a.amount - b.amount) * dir)
+    if (sort.col === 'description') return [...list].sort((a, b) => a.description.localeCompare(b.description, 'es') * dir)
+    return sort.dir === 'asc' ? [...list].sort((a, b) => a.date.localeCompare(b.date)) : list
   }, [transactions, meta.filterType, sort])
 
   const filteredCategories = meta.filterType
@@ -199,11 +204,12 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
               </span>
               <div className="flex rounded-lg overflow-hidden border border-gray-700 text-xs">
                 {(['date', 'amount', 'description'] as const).map((s, i) => (
-                  <button key={s} onClick={() => setSort(s)}
-                    className={cn('px-2 py-1 transition-colors', i > 0 && 'border-l border-gray-700',
-                      sort === s ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200')}
+                  <button key={s} onClick={() => cycleSort(s)}
+                    className={cn('px-2 py-1 transition-colors flex items-center gap-0.5', i > 0 && 'border-l border-gray-700',
+                      sort.col === s ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200')}
                   >
                     {s === 'date' ? 'Fecha' : s === 'amount' ? 'Monto' : 'A–Z'}
+                    {sort.col === s && (sort.dir === 'asc' ? ' ↑' : ' ↓')}
                   </button>
                 ))}
               </div>
