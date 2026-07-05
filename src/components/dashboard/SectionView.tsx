@@ -119,14 +119,16 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
   const meta = SECTION_META[section]
   const Icon = meta.icon
   const total = getTotalForSection(section, summary)
-  const [sortByAmount, setSortByAmount] = useState(false)
+  const [sort, setSort] = useState<'date' | 'amount' | 'description'>('date')
 
   const filtered = useMemo(() => {
     const list = meta.filterType
       ? transactions.filter(t => t.type === meta.filterType)
       : transactions
-    return sortByAmount ? [...list].sort((a, b) => b.amount - a.amount) : list
-  }, [transactions, meta.filterType, sortByAmount])
+    if (sort === 'amount') return [...list].sort((a, b) => b.amount - a.amount)
+    if (sort === 'description') return [...list].sort((a, b) => a.description.localeCompare(b.description, 'es'))
+    return list
+  }, [transactions, meta.filterType, sort])
 
   const filteredCategories = meta.filterType
     ? byCategory.filter(c => c.type === meta.filterType)
@@ -195,13 +197,16 @@ export function SectionView({ section, summary, transactions, byCategory, onEdit
               <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-full">
                 {filtered.length} registros
               </span>
-              <button
-                onClick={() => setSortByAmount(s => !s)}
-                title={sortByAmount ? 'Ordenar por fecha' : 'Ordenar por monto'}
-                className={cn('p-1.5 rounded-lg transition-colors', sortByAmount ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200')}
-              >
-                <ArrowDownUp className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex rounded-lg overflow-hidden border border-gray-700 text-xs">
+                {(['date', 'amount', 'description'] as const).map((s, i) => (
+                  <button key={s} onClick={() => setSort(s)}
+                    className={cn('px-2 py-1 transition-colors', i > 0 && 'border-l border-gray-700',
+                      sort === s ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200')}
+                  >
+                    {s === 'date' ? 'Fecha' : s === 'amount' ? 'Monto' : 'A–Z'}
+                  </button>
+                ))}
+              </div>
               <button
                 onClick={() => exportCSV(filtered, meta.label.toLowerCase())}
                 title="Exportar CSV"
