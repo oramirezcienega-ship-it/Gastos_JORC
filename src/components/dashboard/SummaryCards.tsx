@@ -80,15 +80,18 @@ export function SummaryCards({ data, onSectionClick, activeSection }: Props) {
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-      {cards.map(card => {
+      {cards.map((card, i) => {
         const isActive = activeSection === card.id
         const isClickable = !!onSectionClick
+        // Balance (5th card, index 4) spans 2 cols on mobile to fill the row
+        const isBalance = card.id === 'balance'
         return (
           <button
             key={card.id}
             onClick={() => onSectionClick?.(card.id)}
             className={[
-              'rounded-xl border p-4 text-left transition-all duration-200',
+              'rounded-xl border p-3 md:p-4 text-left transition-all duration-200',
+              isBalance ? 'col-span-2 lg:col-span-1' : '',
               card.bg,
               isActive
                 ? `${card.activeBorder} shadow-lg ${card.glow}`
@@ -96,7 +99,7 @@ export function SummaryCards({ data, onSectionClick, activeSection }: Props) {
               isClickable ? 'cursor-pointer' : 'cursor-default',
             ].join(' ')}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2 md:mb-3">
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${card.dot}`} />
                 <span className="text-xs font-medium text-gray-400">{card.title}</span>
@@ -105,7 +108,7 @@ export function SummaryCards({ data, onSectionClick, activeSection }: Props) {
                 <card.icon className={`w-3.5 h-3.5 ${card.color}`} />
               </div>
             </div>
-            <p className={`text-lg font-bold ${card.color} leading-tight`}>
+            <p className={`text-base md:text-lg font-bold ${card.color} leading-tight`}>
               {formatCurrency(Math.abs(card.value))}
             </p>
             {card.id === 'balance' && (
