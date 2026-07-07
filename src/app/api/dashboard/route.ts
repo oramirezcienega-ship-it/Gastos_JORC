@@ -17,9 +17,11 @@ export async function GET(req: NextRequest) {
   let dateTo: string
 
   if (month) {
-    const m = parseInt(month).toString().padStart(2, '0')
+    const monthNum = parseInt(month)
+    const m = monthNum.toString().padStart(2, '0')
+    const lastDay = new Date(parseInt(year), monthNum, 0).getDate() // día real del último día del mes
     dateFrom = `${year}-${m}-01`
-    dateTo = `${year}-${m}-31`
+    dateTo = `${year}-${m}-${lastDay.toString().padStart(2, '0')}`
   } else {
     dateFrom = `${year}-01-01`
     dateTo = `${year}-12-31`
@@ -75,6 +77,9 @@ export async function GET(req: NextRequest) {
   const byCategory: Record<string, { name: string; color: string; icon: string; amount: number; type: string; pendingAmount: number }> = {}
   for (const t of transactions) {
     if (!t.category_id || !t.category) continue
+    // Solo acumular si el tipo de transacción coincide con el tipo de categoría
+    // Esto evita que créditos o inversiones inflen los totales de gastos y viceversa
+    if (t.type !== t.category.type) continue
     if (!byCategory[t.category_id]) {
       byCategory[t.category_id] = { name: t.category.name, color: t.category.color, icon: t.category.icon ?? '', amount: 0, type: t.type, pendingAmount: 0 }
     }
@@ -90,6 +95,8 @@ export async function GET(req: NextRequest) {
   const byBusiness: Record<string, { name: string; color: string; amount: number }> = {}
   for (const t of transactions) {
     if (!t.business_id || !t.business) continue
+    // Solo contar egresos reales (gastos y créditos), no inversiones ni ingresos
+    if (t.type !== 'expense' && t.type !== 'credit') continue
     if (!byBusiness[t.business_id]) {
       byBusiness[t.business_id] = { name: t.business.name, color: t.business.color, amount: 0 }
     }
